@@ -1,0 +1,25 @@
+{
+  "name" : "WebMaster Tools - Bulk URL removal",
+  "version" : "0.1",
+  "manifest_version": 2,
+  "description": "",
+  "content_scripts" : [
+    {
+      "matches" : ["https://www.google.com/webmasters/tools/url-removal*"],
+        "js" : ["jquery-1.7.1.min.js", "bulk_url_removal.js"]
+    },
+    {
+      "matches" : ["https://www.google.com/webmasters/tools/removals-request*"],
+      "js" : ["jquery-1.7.1.min.js", "removals_request.js"]
+    }
+  ],
+  "background": {
+    "scripts": [
+      "bg.js"
+    ]
+  },
+  "permissions": [
+    "https://www.google.com/webmasters/*"
+  ]
+}
+
