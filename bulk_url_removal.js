@@ -36,7 +36,9 @@ $(document).ready(function(){
     });
   });
 
-  port.postMessage({
-    'type': 'nextVictim'
-  });
+  setTimeout(() => {
+    port.postMessage({
+      'type': 'nextVictim'
+    });
+  }, 1000);
 });
