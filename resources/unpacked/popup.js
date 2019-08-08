@@ -1,3 +1,3 @@
 goog.require("devtools.preload");
 goog.require("figwheel.preload");
-goog.require("chromex_sample.popup");
+goog.require("google_webmaster_tools_bulk_url_removal.popup");
