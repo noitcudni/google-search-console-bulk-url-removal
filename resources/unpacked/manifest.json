@@ -28,6 +28,15 @@
         "compiled/content-script/main.js"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://www.google.com/webmasters/tools/removals-request*"
+      ],
+      "js": [
+        "compiled/content-script/removals_request.js"
+      ],
+      "run_at": "document_end"
     }
   ],
   "background": {
@@ -36,6 +45,7 @@
   },
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "https://www.google.com/webmasters/*"
   ],
   "manifest_version": 2

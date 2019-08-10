@@ -8,7 +8,9 @@
             [chromex.protocols.chrome-port :refer [post-message! get-sender]]
             [chromex.ext.tabs :as tabs]
             [chromex.ext.runtime :as runtime]
-            [google-webmaster-tools-bulk-url-removal.background.storage :refer [test-storage!]]))
+            [cognitect.transit :as t]
+            [google-webmaster-tools-bulk-url-removal.background.storage :refer [test-storage! store-victims!]]
+            ))
 
 (def clients (atom []))
 
@@ -24,15 +26,26 @@
     (swap! clients remove-item client)))
 
 ; -- client event loop ------------------------------------------------------------------------------------------------------
+#_{:url_v  {:method_v_1 {:submit-ts __ :remove-ts __ :status :done}
+            :method_v_2 {:submit-ts __ :remove-ts __ :status :pending}
+            }}
+
 
 (defn run-client-message-loop! [client]
   (log "BACKGROUND: starting event loop for client:" (get-sender client))
-  (go-loop []
-    (when-some [message (<! client)]
-      (log "BACKGROUND: got client message:" message "from" (get-sender client))
-      (recur))
-    (log "BACKGROUND: leaving event loop for client:" (get-sender client))
-    (remove-client! client)))
+  (let [r (t/reader :json)]
+    (go-loop []
+      (when-some [message (<! client)]
+        (log "BACKGROUND: got client message:" message "from" (get-sender client))
+        (let [{:keys [type] :as whole-edn} (t/read r message)]
+          (cond (= type :init-victims) (do
+                                         (prn "inside :init-victims: " whole-edn)
+                                         (store-victims! whole-edn))
+                ))
+        (recur))
+
+      (log "BACKGROUND: leaving event loop for client:" (get-sender client))
+      (remove-client! client))))
 
 ; -- event handlers ---------------------------------------------------------------------------------------------------------
 

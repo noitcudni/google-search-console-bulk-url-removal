@@ -4,6 +4,8 @@
                  [org.clojure/core.async "0.4.500"]
                  [binaryage/chromex "0.8.1"]
                  [binaryage/devtools "0.9.10"]
+                 [com.cognitect/transit-cljs "0.8.256"]
+                 [com.andrewmcveigh/cljs-time "0.5.2"]
                  [hipo "0.5.2"]
                  [prismatic/dommy "1.1.0"]
                  [testdouble/clojurescript.csv "0.4.3"]
@@ -59,7 +61,18 @@
                                            ;:optimizations :whitespace                                                        ; content scripts cannot do eval / load script dynamically
                                            :optimizations :advanced                                                           ; let's use advanced build with pseudo-names for now, there seems to be a bug in deps ordering under :whitespace mode
                                            :pseudo-names  true
-                                           :pretty-print  true}}}}}
+                                           :pretty-print  true}}
+                           :content-script-2
+                           {:source-paths ["src/content_script"]
+                            :compiler {:output-to     "resources/unpacked/compiled/content-script/removals_request.js"
+                                       :output-dir    "resources/unpacked/compiled/removals_request"
+                                       :asset-path    "compiled/content-script"
+                                       :main          google-webmaster-tools-bulk-url-removal.removals-request
+                                        ;:optimizations :whitespace                                                        ; content scripts cannot do eval / load script dynamically
+                                       :optimizations :advanced                                                           ; let's use advanced build with pseudo-names for now, there seems to be a bug in deps ordering under :whitespace mode
+                                       :pseudo-names  true
+                                       :pretty-print  true}}
+                           }}}
              :checkouts
              ; DON'T FORGET TO UPDATE scripts/ensure-checkouts.sh
              {:cljsbuild {:builds
@@ -74,7 +87,11 @@
              {:cljsbuild {:builds
                           {:content-script {:source-paths ["checkouts/cljs-devtools/src/lib"
                                                            "checkouts/chromex/src/lib"
-                                                           "checkouts/chromex/src/exts"]}}}}
+                                                           "checkouts/chromex/src/exts"]}
+                           :content-script-2 {:source-paths ["checkouts/cljs-devtools/src/lib"
+                                                             "checkouts/chromex/src/lib"
+                                                             "checkouts/chromex/src/exts"]}}
+                          }}
 
              :figwheel
              {:figwheel {:server-port    6888
@@ -119,7 +136,7 @@
 
   :aliases {"dev-build"       ["with-profile" "+unpacked,+unpacked-content-script,+checkouts,+checkouts-content-script" "cljsbuild" "once"]
             "fig"             ["with-profile" "+unpacked,+figwheel" "figwheel" "background" "popup"]
-            "content"         ["with-profile" "+unpacked-content-script" "cljsbuild" "auto" "content-script"]
+            "content"         ["with-profile" "+unpacked-content-script" "cljsbuild" "auto" "content-script" "content-script-2"]
             "fig-dev-no-repl" ["with-profile" "+unpacked,+figwheel,+disable-figwheel-repl,+checkouts" "figwheel" "background" "popup"]
             "content-dev"     ["with-profile" "+unpacked-content-script,+checkouts-content-script" "cljsbuild" "auto"]
             "devel"           ["with-profile" "+cooper" "do"                                                                  ; for mac only

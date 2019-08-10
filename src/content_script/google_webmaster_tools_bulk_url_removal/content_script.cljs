@@ -3,4 +3,4 @@
   (:require [google-webmaster-tools-bulk-url-removal.content-script.core :as core]))
 
 (runonce
-  (core/init!))
+ (core/init!))

@@ -40,3 +40,9 @@ java, maven, leiningen, etc.
     lein content
     ```
   * In Chrome Canary, open `chrome://extensions` and add `resources/unpacked` via "Load unpacked extension..."
+
+
+## CSV Format
+url (required), method-of-removal (optional options: PAGE, PAGE_CACHE, DIRECTORY)
+
+method-of-removal inside CSV overrides the global removal option
