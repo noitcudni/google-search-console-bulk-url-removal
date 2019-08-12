@@ -39,8 +39,9 @@
         (log "BACKGROUND: got client message:" message "from" (get-sender client))
         (let [{:keys [type] :as whole-edn} (t/read r message)]
           (cond (= type :init-victims) (do
-                                         (prn "inside :init-victims: " whole-edn)
-                                         (store-victims! whole-edn))
+                                         (prn "inside :init-victims: " whole-edn):done-init-victims
+                                         (store-victims! whole-edn)
+                                         (post-message! client (t/write w {:type :done-init-victims})))
                 (= type :next-victim) (do
                                         (prn "inside: :next-victim: " whole-edn)
                                         (go
@@ -61,12 +62,12 @@
 
 (defn handle-client-connection! [client]
   (add-client! client)
-  (post-message! client "hello from BACKGROUND PAGE!")
+  ;; (post-message! client "hello from BACKGROUND PAGE!")
   (run-client-message-loop! client))
 
-(defn tell-clients-about-new-tab! []
-  (doseq [client @clients]
-    (post-message! client "a new tab was created")))
+;; (defn tell-clients-about-new-tab! []
+;;   (doseq [client @clients]
+;;     (post-message! client "a new tab was created")))
 
 ; -- main event loop --------------------------------------------------------------------------------------------------------
 
@@ -75,7 +76,7 @@
   (let [[event-id event-args] event]
     (case event-id
       ::runtime/on-connect (apply handle-client-connection! event-args)
-      ::tabs/on-created (tell-clients-about-new-tab!)
+      ;; ::tabs/on-created (tell-clients-about-new-tab!)
       nil)))
 
 (defn run-chrome-event-loop! [chrome-event-channel]
@@ -88,7 +89,7 @@
 
 (defn boot-chrome-event-loop! []
   (let [chrome-event-channel (make-chrome-event-channel (chan))]
-    (tabs/tap-all-events chrome-event-channel)
+    ;; (tabs/tap-all-events chrome-event-channel)
     (runtime/tap-all-events chrome-event-channel)
     (run-chrome-event-loop! chrome-event-channel)))
 
