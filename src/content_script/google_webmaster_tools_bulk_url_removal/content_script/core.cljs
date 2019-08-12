@@ -1,5 +1,5 @@
 (ns google-webmaster-tools-bulk-url-removal.content-script.core
-  (:require-macros [cljs.core.async.macros :refer [go-loop]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [cljs.core.async :refer [<! >! put! chan]]
             [hipo.core :as hipo]
             [dommy.core :refer-macros [sel sel1] :as dommy]
@@ -8,7 +8,8 @@
             [chromex.logging :refer-macros [log info warn error group group-end]]
             [chromex.protocols.chrome-port :refer [post-message!]]
             [chromex.ext.runtime :as runtime :refer-macros [connect]]
-            [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! print-victims]]
+            [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! print-victims update-storage
+                                                                                current-removal-attempt]]
             ))
 
 ;; TODO: add a pause button in the popup
@@ -56,8 +57,8 @@
 
         clear-db-btn-el (hipo/create [:div [:button {:type "button"
                                                      :on-click (fn [_]
-                                                                 (log "clear db btn clicked!")
-                                                                 ;; (clear-victims!)
+                                                                 (log "clear victims from local storage.") ;;xxx
+                                                                 (clear-victims!)
                                                                  )}
                                             "Clear local storage"]
                                       ])
@@ -74,16 +75,36 @@
     (dommy/append! (sel1 :#create-removal_button) print-db-btn-el)
     ))
 
+(defn setup-continue-ui [background-port]
+  (let [continue-button-el (hipo/create [:div [:button {:type "button"
+                                                        :on-click (fn []
+                                                                    (post-message! background-port (t/write w {:type :next-victim}))
+                                                                    )}
+                                               "Continue"
+                                               ]])]
+    (dommy/append! (sel1 :#create-removal_button) continue-button-el)
+    ))
+
 (defn connect-to-background-page! [background-port]
   ;; (post-message! background-port "hello from CONTENT SCRIPT!")
-  (run-message-loop! background-port)
-  (setup-ui background-port))
+  (run-message-loop! background-port))
+
+
+(defn update-removal-status []
+  ;; the status message should read "https://polymorphiclabs.io/tags-output/mobile%20app/ has been added for removal."
+  (prn "update-removal-status: " (sel1 ".status-message-text"))
+  (when-let [el (sel1 ".status-message-text")]
+    (let [txt (text el)
+          [url & more] (clojure.string/split txt #" ")]
+      (update-storage url "status" "removed"))))
+
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
 
 (defn init! []
   (let [_ (log "CONTENT SCRIPT: init")
-        background-port (runtime/connect)]
+        background-port (runtime/connect)
+        w (t/writer :json)]
 
     ;; handle onload
     (go-loop []
@@ -96,7 +117,6 @@
     ;; handle read the file
     (go-loop []
       (let [file-content (<! read-chan)
-            w (t/writer :json)
             _ (prn (clojure.string/trim file-content))
             csv-data (->> (csv/read-csv (clojure.string/trim file-content))
                           ;; trim off random whitespaces
@@ -104,12 +124,26 @@
                                  (->> [(clojure.string/trim url)
                                        (when method (clojure.string/trim method))]
                                       (filter (complement nil?))
-                                      ))))
-            ]
+                                      ))))]
         (post-message! background-port (t/write w {:type :init-victims
                                                    :global-removal-method (dommy/value (sel1 :#global-removal-method))
                                                    :data csv-data
                                                    }))
         (recur)))
 
-    (connect-to-background-page! background-port)))
+    (update-removal-status)
+    (setup-ui background-port)
+    (connect-to-background-page! background-port)
+
+    ;; Ask for the next victim if there's no failure.
+    ;; If current-removal-attempt returns nil, that means
+    ;; that there's no outstanding failure.
+    (go
+      (let [curr-removal (<! (current-removal-attempt))
+            outstanding-failed-attempt? (->> curr-removal nil? not)
+            _ (prn "calling current-removal-attempt: " curr-removal)]
+        (if outstanding-failed-attempt?
+          (setup-continue-ui) ;; pause since we have an outstanding failure.
+          (post-message! background-port (t/write w {:type :next-victim}))
+          )))
+    ))

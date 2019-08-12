@@ -1,11 +1,11 @@
 (ns google-webmaster-tools-bulk-url-removal.background.storage
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
-  (:require [cljs.core.async :refer [<! chan take!]]
+  (:require [cljs.core.async :refer [<! >! chan take!]]
             [cljs-time.core :as t]
             [cljs-time.coerce :as tc]
             [cljs-time.format :as tf]
             [chromex.logging :refer-macros [log info warn error group group-end]]
-            [chromex.protocols.chrome-storage-area :refer [get set]]
+            [chromex.protocols.chrome-storage-area :refer [get set clear]]
             [chromex.ext.storage :as storage]))
 
 ;; https://cljdoc.org/d/binaryage/chromex/0.7.1/api/chromex.protocols.chrome-storage-area
@@ -42,15 +42,19 @@
           (log "fetch fake-key:" items)))
       )))
 
-#_{:url_v  {:method_v_1 {:submit-ts __ :remove-ts __ :status :done :idx 0}
+#_{:url_v  {:method_v_1 {:submit-ts __ :remove-ts __ :status :removed :idx 0}
             :method_v_2 {:submit-ts __ :remove-ts __ :status :pending :idx 1}
+            :method_v_3 {:submit-ts __ :remove-ts __ :status :pending :idx 2}
             }}
 
 ;; (tc/to-date (tc/from-long (tc/to-long (t/now))))
 ;; [cljs-time.format :as tf] tf/formatter
-;; TODO: how do I clear localstorage?
+;; {"https://polymorphiclabs.io/tags-output/mobile%20app/" {"PAGE_CACHE" {"idx" 0, "remove-ts" nil, "status" "pending", "submit-ts" 1565375547359}}, "https://polymorphiclabs.io/tags-output/re-natal/" {"PAGE_CACHE" {"idx" 1, "remove-ts" nil, "status" "pending", "submit-ts" 1565375547363}}, "key1" "string", "key2" [1 2 3], "key3" true, "key4" nil, "key5" {"foo" "bar"}}
 
-(defn store-victims! [{:keys [global-removal-method data]}]
+
+(defn store-victims!
+  "status: pending, removed, removing"
+  [{:keys [global-removal-method data]}]
   (let [local-storage (storage/get-local)]
     (go-loop [[[url optional-removal-method :as curr] & more] data
               idx 0]
@@ -60,21 +64,62 @@
               [[items] error] (<! (get local-storage url))]
           (if error
             (error (str "fetching " url ":") error)
-            (let [entry (->> (js->clj items) vals first)
-                  _ (prn "entry: " entry)]
-              (when-not (contains? entry removal-method)
-                (log "setting url: " url " | method: " removal-method) ;;xxx
-                (set local-storage (clj->js {url (merge
-                                                  {removal-method {"submit-ts" (tc/to-long (t/now))
-                                                                   "remove-ts" nil
-                                                                   "status" "pending"
-                                                                   "idx" idx}}
-                                                  entry
-                                                  )}))
-                )))
+            (do (log "setting url: " url " | method: " removal-method)
+                (set local-storage (clj->js {url {"submit-ts" (tc/to-long (t/now))
+                                                  "remove-ts" nil
+                                                  "removal-method" removal-method
+                                                  "status" "pending"
+                                                  "idx" idx}
+                                             }))))
           (recur more (inc idx)))
         ))
     ))
+
+(defn update-storage [url k v]
+  (let [local-storage (storage/get-local)]
+    (go
+      (let [[[items] error] (<! (get local-storage url))]
+        (if error
+          (error (str "fetching " url ":") error)
+          (let [entry (->> (js->clj items) vals first)]
+            (set local-storage (clj->js {url (assoc entry k v)}))))))))
+
+
+
+
+(defn current-removal-attempt
+  "NOTE: There should only be one item that's undergoing removing.
+  Return nil if not found.
+  Return URL if found.
+  "
+  []
+  (let [local-storage (storage/get-local)
+        ch (chan)]
+    (go
+      (let [[[items] error] (<! (get local-storage))]
+        (>! ch (->> items
+                    js->clj
+                    (filter (fn [[k v]]
+                              (= "removing" (get v "status"))
+                              ))
+                    ffirst))
+        ))
+    ch))
+
+(defn next-victim []
+  (let [local-storage (storage/get-local)
+        ch (chan)]
+    (go
+      (let [[[items] error] (<! (get local-storage))]
+        (>! ch (->> (or items '())
+                    js->clj
+                    (filter (fn [[k v]]
+                              (let [status (get v "status")]
+                                (= "pending" status))))
+                    first))
+        ))
+    ch))
+
 
 (defn clear-victims! []
   (let [local-storage (storage/get-local)]
@@ -83,7 +128,7 @@
 (defn print-victims []
   (let [local-storage (storage/get-local)]
     (go
-      (let [[[items] error] (<! (get local-storage url))]
+      (let [[[items] error] (<! (get local-storage))]
            (prn (js->clj items))
         ))
     ))

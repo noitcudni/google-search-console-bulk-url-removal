@@ -9,7 +9,7 @@
             [chromex.ext.tabs :as tabs]
             [chromex.ext.runtime :as runtime]
             [cognitect.transit :as t]
-            [google-webmaster-tools-bulk-url-removal.background.storage :refer [test-storage! store-victims!]]
+            [google-webmaster-tools-bulk-url-removal.background.storage :refer [test-storage! store-victims! update-storage next-victim]]
             ))
 
 (def clients (atom []))
@@ -30,10 +30,10 @@
             :method_v_2 {:submit-ts __ :remove-ts __ :status :pending}
             }}
 
-
 (defn run-client-message-loop! [client]
   (log "BACKGROUND: starting event loop for client:" (get-sender client))
-  (let [r (t/reader :json)]
+  (let [r (t/reader :json)
+        w (t/writer :json)]
     (go-loop []
       (when-some [message (<! client)]
         (log "BACKGROUND: got client message:" message "from" (get-sender client))
@@ -41,6 +41,16 @@
           (cond (= type :init-victims) (do
                                          (prn "inside :init-victims: " whole-edn)
                                          (store-victims! whole-edn))
+                (= type :next-victim) (do
+                                        (prn "inside: :next-victim: " whole-edn)
+                                        (go
+                                          (let [[victim-url victim-entry] (<! (next-victim))]
+                                            (post-message! client
+                                                           (t/write w {:type :remove-url
+                                                                       :victim victim-url
+                                                                       :removal-method (get victim-entry "removal-method")
+                                                                       }))
+                                            )))
                 ))
         (recur))
 
