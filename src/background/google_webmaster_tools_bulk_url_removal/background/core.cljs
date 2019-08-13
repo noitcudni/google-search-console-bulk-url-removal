@@ -9,7 +9,7 @@
             [chromex.ext.tabs :as tabs]
             [chromex.ext.runtime :as runtime]
             [cognitect.transit :as t]
-            [google-webmaster-tools-bulk-url-removal.background.storage :refer [test-storage! store-victims! update-storage next-victim]]
+            [google-webmaster-tools-bulk-url-removal.background.storage :refer [store-victims! update-storage next-victim]]
             ))
 
 (def clients (atom []))
@@ -54,7 +54,6 @@
                                             )))
                 ))
         (recur))
-
       (log "BACKGROUND: leaving event loop for client:" (get-sender client))
       (remove-client! client))))
 
@@ -97,5 +96,4 @@
 
 (defn init! []
   (log "BACKGROUND: init")
-  (test-storage!)
   (boot-chrome-event-loop!))

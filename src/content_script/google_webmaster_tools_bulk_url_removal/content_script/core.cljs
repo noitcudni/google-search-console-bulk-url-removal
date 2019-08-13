@@ -21,14 +21,21 @@
 
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
 
-(defn process-message! [message]
-  (log "CONTENT SCRIPT: got message:" message))
+(defn process-message! [chan message]
+  (let [r (t/reader :json)
+        w (t/writer :json)
+        {:keys [type] :as whole-msg} (t/read r message)]
+    (prn "CONTENT SCRIPT: process-message!: " whole-msg)
+    (cond (= type :done-init-victims) (post-message! chan (t/write w {:type :next-victim}))
+          (= type :remove-url) (do (prn "handling :remove-url"))
+          )
+    ))
 
 (defn run-message-loop! [message-channel]
   (log "CONTENT SCRIPT: starting message loop...")
   (go-loop []
     (when-some [message (<! message-channel)]
-      (process-message! message)
+      (process-message! message-channel message)
       (recur))
     (log "CONTENT SCRIPT: leaving message loop")))
 
@@ -76,7 +83,8 @@
     ))
 
 (defn setup-continue-ui [background-port]
-  (let [continue-button-el (hipo/create [:div [:button {:type "button"
+  (let [w (t/writer :json)
+        continue-button-el (hipo/create [:div [:button {:type "button"
                                                         :on-click (fn []
                                                                     (post-message! background-port (t/write w {:type :next-victim}))
                                                                     )}
@@ -94,10 +102,9 @@
   ;; the status message should read "https://polymorphiclabs.io/tags-output/mobile%20app/ has been added for removal."
   (prn "update-removal-status: " (sel1 ".status-message-text"))
   (when-let [el (sel1 ".status-message-text")]
-    (let [txt (text el)
+    (let [txt (dommy/text el)
           [url & more] (clojure.string/split txt #" ")]
       (update-storage url "status" "removed"))))
-
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
 
@@ -139,11 +146,12 @@
     ;; If current-removal-attempt returns nil, that means
     ;; that there's no outstanding failure.
     (go
-      (let [curr-removal (<! (current-removal-attempt))
-            outstanding-failed-attempt? (->> curr-removal nil? not)
-            _ (prn "calling current-removal-attempt: " curr-removal)]
+      (let [_ (prn "Inside go block.") ;;xxx
+            curr-removal (<! (current-removal-attempt))
+            _ (prn "curr-removal: " curr-removal) ;;xxx
+            outstanding-failed-attempt? (->> curr-removal empty? not)]
         (if outstanding-failed-attempt?
-          (setup-continue-ui) ;; pause since we have an outstanding failure.
+          (setup-continue-ui background-port) ;; pause since we have an outstanding failure.
           (post-message! background-port (t/write w {:type :next-victim}))
           )))
     ))

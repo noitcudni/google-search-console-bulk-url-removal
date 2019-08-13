@@ -5,14 +5,15 @@
             [cljs-time.coerce :as tc]
             [cljs-time.format :as tf]
             [chromex.logging :refer-macros [log info warn error group group-end]]
-            [chromex.protocols.chrome-storage-area :refer [get set clear]]
+            [chromex.protocols.chrome-storage-area :as storage-area]
             [chromex.ext.storage :as storage]))
 
 ;; https://cljdoc.org/d/binaryage/chromex/0.7.1/api/chromex.protocols.chrome-storage-area
 ;; (remove this keys)
 ;; (clear this)
 
-(defn test-storage! []
+;; TODO: remove me later
+#_(defn test-storage! []
   (let [local-storage (storage/get-local)
         _ (set local-storage #js {"key1" "string"
                                   "key2" #js [1 2 3]
@@ -61,11 +62,11 @@
       (if (nil? curr)
         (log "DONE storing victims")
         (let [removal-method (or optional-removal-method global-removal-method)
-              [[items] error] (<! (get local-storage url))]
+              [[items] error] (<! (storage-area/get local-storage url))]
           (if error
             (error (str "fetching " url ":") error)
             (do (log "setting url: " url " | method: " removal-method)
-                (set local-storage (clj->js {url {"submit-ts" (tc/to-long (t/now))
+                (storage-area/set local-storage (clj->js {url {"submit-ts" (tc/to-long (t/now))
                                                   "remove-ts" nil
                                                   "removal-method" removal-method
                                                   "status" "pending"
@@ -78,39 +79,58 @@
 (defn update-storage [url k v]
   (let [local-storage (storage/get-local)]
     (go
-      (let [[[items] error] (<! (get local-storage url))]
+      (let [[[items] error] (<! (storage-area/get local-storage url))]
         (if error
           (error (str "fetching " url ":") error)
           (let [entry (->> (js->clj items) vals first)]
-            (set local-storage (clj->js {url (assoc entry k v)}))))))))
+            (storage-area/set local-storage (clj->js {url (assoc entry k v)}))))))))
 
 
 
 
 (defn current-removal-attempt
-  "NOTE: There should only be one item that's undergoing removing.
+  "NOTE: There should only be one item that's undergoing removal.
   Return nil if not found.
   Return URL if found.
   "
   []
   (let [local-storage (storage/get-local)
-        ch (chan)]
+        ch (chan)
+        ]
     (go
-      (let [[[items] error] (<! (get local-storage))]
-        (>! ch (->> items
-                    js->clj
-                    (filter (fn [[k v]]
-                              (= "removing" (get v "status"))
-                              ))
-                    ffirst))
+      (let [[[items] error] (<! (storage-area/get local-storage))]
+        (>! ch
+            (or (->> items
+                     js->clj
+                     (filter (fn [[k v]]
+                               (= "removing" (get v "status"))
+                               ))
+                     first)
+                   {}))
         ))
     ch))
 
+;; (defn pending-victim-cnt []
+;;   (let [local-storage (storage/get-local)
+;;         ch (chan)]
+;;     (go
+;;       (let [[[items] error] (<! (get local-storage))]
+;;         (>! ch (->> (or items '())
+;;                     js->clj
+;;                     (filter (fn [[k v]]
+;;                               (let [status (get v "status")]
+;;                                 (= "pending" status))))
+;;                     count))
+;;         ))
+;;     ch))
+
 (defn next-victim []
   (let [local-storage (storage/get-local)
-        ch (chan)]
+        ch (chan)
+        _ (prn "calling next-victim")
+        ]
     (go
-      (let [[[items] error] (<! (get local-storage))]
+      (let [[[items] error] (<! (storage-area/get local-storage))]
         (>! ch (->> (or items '())
                     js->clj
                     (filter (fn [[k v]]
@@ -123,12 +143,12 @@
 
 (defn clear-victims! []
   (let [local-storage (storage/get-local)]
-    (clear local-storage)))
+    (storage-area/clear local-storage)))
 
 (defn print-victims []
   (let [local-storage (storage/get-local)]
     (go
-      (let [[[items] error] (<! (get local-storage))]
+      (let [[[items] error] (<! (storage-area/get local-storage))]
            (prn (js->clj items))
         ))
     ))
