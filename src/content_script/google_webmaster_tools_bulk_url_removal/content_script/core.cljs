@@ -4,12 +4,15 @@
             [hipo.core :as hipo]
             [dommy.core :refer-macros [sel sel1] :as dommy]
             [testdouble.cljs.csv :as csv]
-            [cognitect.transit :as t]
+            ;; [cognitect.transit :as t]
             [chromex.logging :refer-macros [log info warn error group group-end]]
             [chromex.protocols.chrome-port :refer [post-message!]]
             [chromex.ext.runtime :as runtime :refer-macros [connect]]
+            [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! print-victims update-storage
                                                                                 current-removal-attempt]]
+            [cljs-time.core :as t]
+            [cljs-time.coerce :as tc]
             ))
 
 ;; TODO: add a pause button in the popup
@@ -22,22 +25,16 @@
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
 
 (defn process-message! [chan message]
-  (let [r (t/reader :json)
-        w (t/writer :json)
-        {:keys [type] :as whole-msg} (t/read r message)]
+  (let [{:keys [type] :as whole-msg} (common/unmarshall message)]
     (prn "CONTENT SCRIPT: process-message!: " whole-msg)
-    (cond (= type :done-init-victims) (post-message! chan (t/write w {:type :next-victim}))
-          (= type :remove-url) (do (prn "handling :remove-url"))
+    (cond (= type :done-init-victims) (post-message! chan (common/marshall {:type :next-victim}))
+          (= type :remove-url) (do (prn "handling :remove-url")
+                                   (dommy/set-value! (sel1 "input[name=\"urlt\"]") (:victim whole-msg))
+                                   (.click (sel1 "input[name=\"urlt.submitButton\"]"))
+                                   )
           )
     ))
 
-(defn run-message-loop! [message-channel]
-  (log "CONTENT SCRIPT: starting message loop...")
-  (go-loop []
-    (when-some [message (<! message-channel)]
-      (process-message! message-channel message)
-      (recur))
-    (log "CONTENT SCRIPT: leaving message loop")))
 
 ; -- custom ui components  ------------------------------------------------------------------------------------------------
 (def upload-chan (chan 1 (map (fn [e]
@@ -83,19 +80,14 @@
     ))
 
 (defn setup-continue-ui [background-port]
-  (let [w (t/writer :json)
-        continue-button-el (hipo/create [:div [:button {:type "button"
+  (let [continue-button-el (hipo/create [:div [:button {:type "button"
                                                         :on-click (fn []
-                                                                    (post-message! background-port (t/write w {:type :next-victim}))
+                                                                    (post-message! background-port (common/marshall {:type :next-victim}))
                                                                     )}
                                                "Continue"
                                                ]])]
     (dommy/append! (sel1 :#create-removal_button) continue-button-el)
     ))
-
-(defn connect-to-background-page! [background-port]
-  ;; (post-message! background-port "hello from CONTENT SCRIPT!")
-  (run-message-loop! background-port))
 
 
 (defn update-removal-status []
@@ -104,14 +96,17 @@
   (when-let [el (sel1 ".status-message-text")]
     (let [txt (dommy/text el)
           [url & more] (clojure.string/split txt #" ")]
-      (update-storage url "status" "removed"))))
+      ;; TODO update remove-ts
+      (update-storage url
+                      "status" "removed"
+                      "remove-ts" (tc/to-long (t/now))
+                      ))))
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
 
 (defn init! []
   (let [_ (log "CONTENT SCRIPT: init")
-        background-port (runtime/connect)
-        w (t/writer :json)]
+        background-port (runtime/connect)]
 
     ;; handle onload
     (go-loop []
@@ -132,15 +127,15 @@
                                        (when method (clojure.string/trim method))]
                                       (filter (complement nil?))
                                       ))))]
-        (post-message! background-port (t/write w {:type :init-victims
-                                                   :global-removal-method (dommy/value (sel1 :#global-removal-method))
-                                                   :data csv-data
-                                                   }))
+        (post-message! background-port (common/marshall {:type :init-victims
+                                                         :global-removal-method (dommy/value (sel1 :#global-removal-method))
+                                                         :data csv-data
+                                                         }))
         (recur)))
 
     (update-removal-status)
     (setup-ui background-port)
-    (connect-to-background-page! background-port)
+    (common/connect-to-background-page! background-port process-message!)
 
     ;; Ask for the next victim if there's no failure.
     ;; If current-removal-attempt returns nil, that means
@@ -152,6 +147,6 @@
             outstanding-failed-attempt? (->> curr-removal empty? not)]
         (if outstanding-failed-attempt?
           (setup-continue-ui background-port) ;; pause since we have an outstanding failure.
-          (post-message! background-port (t/write w {:type :next-victim}))
+          (post-message! background-port (common/marshall {:type :next-victim}))
           )))
     ))

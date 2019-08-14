@@ -10,6 +10,7 @@
             [chromex.ext.runtime :as runtime]
             [cognitect.transit :as t]
             [google-webmaster-tools-bulk-url-removal.background.storage :refer [store-victims! update-storage next-victim]]
+            [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             ))
 
 (def clients (atom []))
@@ -32,30 +33,31 @@
 
 (defn run-client-message-loop! [client]
   (log "BACKGROUND: starting event loop for client:" (get-sender client))
-  (let [r (t/reader :json)
-        w (t/writer :json)]
-    (go-loop []
-      (when-some [message (<! client)]
-        (log "BACKGROUND: got client message:" message "from" (get-sender client))
-        (let [{:keys [type] :as whole-edn} (t/read r message)]
-          (cond (= type :init-victims) (do
-                                         (prn "inside :init-victims: " whole-edn):done-init-victims
-                                         (store-victims! whole-edn)
-                                         (post-message! client (t/write w {:type :done-init-victims})))
-                (= type :next-victim) (do
-                                        (prn "inside: :next-victim: " whole-edn)
-                                        (go
-                                          (let [[victim-url victim-entry] (<! (next-victim))]
+  (go-loop []
+    (when-some [message (<! client)]
+      (log "BACKGROUND: got client message:" message "from" (get-sender client))
+      (let [{:keys [type] :as whole-edn} (common/unmarshall message)]
+        (cond (= type :init-victims) (do
+                                       (prn "inside :init-victims: " whole-edn):done-init-victims
+                                       (store-victims! whole-edn)
+                                       (post-message! client (common/marshall {:type :done-init-victims})))
+              (= type :next-victim) (do
+                                      (prn "inside: :next-victim: " whole-edn)
+                                      (go
+                                        (let [[victim-url victim-entry] (<! (next-victim))
+                                              _ (prn "BACKGROUND: victim-url: " victim-url)
+                                              _ (prn "BACKGROUND: victim-entry: " victim-entry)]
+                                          (if (and victim-url victim-entry)
                                             (post-message! client
-                                                           (t/write w {:type :remove-url
-                                                                       :victim victim-url
-                                                                       :removal-method (get victim-entry "removal-method")
-                                                                       }))
-                                            )))
-                ))
-        (recur))
-      (log "BACKGROUND: leaving event loop for client:" (get-sender client))
-      (remove-client! client))))
+                                                           (common/marshall {:type :remove-url
+                                                                             :victim victim-url
+                                                                             :removal-method (get victim-entry "removal-method")
+                                                                             })))
+                                          )))
+              ))
+      (recur))
+    (log "BACKGROUND: leaving event loop for client:" (get-sender client))
+    (remove-client! client)))
 
 ; -- event handlers ---------------------------------------------------------------------------------------------------------
 

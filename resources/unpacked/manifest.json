@@ -34,7 +34,7 @@
         "https://www.google.com/webmasters/tools/removals-request*"
       ],
       "js": [
-        "compiled/content-script/removals_request.js"
+        "compiled/removals_request/removals_request.js"
       ],
       "run_at": "document_end"
     }

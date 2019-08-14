@@ -64,9 +64,9 @@
                                            :pretty-print  true}}
                            :content-script-2
                            {:source-paths ["src/content_script"]
-                            :compiler {:output-to     "resources/unpacked/compiled/content-script/removals_request.js"
+                            :compiler {:output-to     "resources/unpacked/compiled/removals_request/removals_request.js"
                                        :output-dir    "resources/unpacked/compiled/removals_request"
-                                       :asset-path    "compiled/content-script"
+                                       :asset-path    "compiled/removals_request"
                                        :main          google-webmaster-tools-bulk-url-removal.removals-request
                                         ;:optimizations :whitespace                                                        ; content scripts cannot do eval / load script dynamically
                                        :optimizations :advanced                                                           ; let's use advanced build with pseudo-names for now, there seems to be a bug in deps ordering under :whitespace mode
