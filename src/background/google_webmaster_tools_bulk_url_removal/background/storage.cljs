@@ -92,15 +92,6 @@
                                                       }))))))
     ))
 
-;; (defn update-storage [url k v]
-;;   (let [local-storage (storage/get-local)]
-;;     (go
-;;       (let [[[items] error] (<! (storage-area/get local-storage url))]
-;;         (if error
-;;           (error (str "fetching " url ":") error)
-;;           (let [entry (->> (js->clj items) vals first)]
-;;             (storage-area/set local-storage (clj->js {url (assoc entry k v)}))))))))
-
 
 (defn current-removal-attempt
   "NOTE: There should only be one item that's undergoing removal.
@@ -150,7 +141,7 @@
                                                      (let [status (get v "status")]
                                                        (= "pending" status))))
                                            first)
-            _ (when-not (nil? victim-entry) (update-storage victim-url "status" "removing"))
+            _ (when-not (nil? victim-entry) (<! (update-storage victim-url "status" "removing")))
             victim (<! (current-removal-attempt))]
         (>! ch victim)
         ))
