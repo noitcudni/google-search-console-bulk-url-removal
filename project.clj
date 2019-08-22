@@ -132,7 +132,16 @@
                                            :asset-path    "compiled/content-script"
                                            :main          google-webmaster-tools-bulk-url-removal.content-script
                                            :optimizations :advanced
-                                           :elide-asserts true}}}}}}
+                                           :elide-asserts true}}
+                           :content-script-2
+                           {:source-paths ["src/content_script"]
+                            :compiler     {:output-to     "resources/release/compiled/removals_request.js"
+                                           :output-dir    "resources/release/compiled/removals_request"
+                                           :asset-path    "compiled/removals_request"
+                                           :main          google-webmaster-tools-bulk-url-removal.removals-request
+                                           :optimizations :advanced
+                                           :elide-asserts true}}
+                           }}}}
 
   :aliases {"dev-build"       ["with-profile" "+unpacked,+unpacked-content-script,+checkouts,+checkouts-content-script" "cljsbuild" "once"]
             "fig"             ["with-profile" "+unpacked,+figwheel" "figwheel" "background" "popup"]
@@ -144,5 +153,5 @@
                                ["cooper"]]
             "release"         ["with-profile" "+release" "do"
                                ["clean"]
-                               ["cljsbuild" "once" "background" "popup" "content-script"]]
+                               ["cljsbuild" "once" "background" "popup" "content-script" "content-script-2"]]
             "package"         ["shell" "scripts/package.sh"]})

@@ -13,6 +13,8 @@
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             ))
 
+
+(def ^:export github-source-url "This project is from https://github.com/noitcudni/google-webmaster-tools-bulk-url-removal")
 (def clients (atom []))
 
 ; -- clients manipulation ---------------------------------------------------------------------------------------------------
