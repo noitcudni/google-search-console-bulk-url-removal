@@ -1,6 +1,6 @@
 (ns google-webmaster-tools-bulk-url-removal.content-script.core
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
-  (:require [cljs.core.async :refer [<! >! put! chan]]
+  (:require [cljs.core.async :refer [<! >! put! chan] :as async]
             [hipo.core :as hipo]
             [dommy.core :refer-macros [sel sel1] :as dommy]
             [testdouble.cljs.csv :as csv]
@@ -92,15 +92,17 @@
 
 (defn update-removal-status []
   ;; the status message should read "https://polymorphiclabs.io/tags-output/mobile%20app/ has been added for removal."
-  (prn "update-removal-status: " (sel1 ".status-message-text"))
-  (when-let [el (sel1 ".status-message-text")]
-    (let [txt (dommy/text el)
-          [url & more] (clojure.string/split txt #" ")]
-      ;; TODO update remove-ts
-      (update-storage url
-                      "status" "removed"
-                      "remove-ts" (tc/to-long (t/now))
-                      ))))
+  (go
+    (prn "update-removal-status: " (sel1 ".status-message-text"))
+    (when-let [el (sel1 ".status-message-text")]
+      (let [txt (dommy/text el)
+            _ (prn "update-removal-status: txt: " txt) ; xxx
+            [url & more] (clojure.string/split txt #" ")]
+        ;; TODO update remove-ts
+        (<! (update-storage url
+                            "status" "removed"
+                            "remove-ts" (tc/to-long (t/now))
+                            ))))))
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
 
@@ -133,14 +135,15 @@
                                                          }))
         (recur)))
 
-    (update-removal-status)
-    (setup-ui background-port)
-    (common/connect-to-background-page! background-port process-message!)
-
     ;; Ask for the next victim if there's no failure.
     ;; If current-removal-attempt returns nil, that means
     ;; that there's no outstanding failure.
     (go
+      (<! (async/timeout 1500)) ;; wait a bit for the ui to update
+      (<! (update-removal-status))
+      (setup-ui background-port)
+      (common/connect-to-background-page! background-port process-message!)
+
       (let [_ (prn "Inside go block.") ;;xxx
             curr-removal (<! (current-removal-attempt))
             _ (prn "curr-removal: " curr-removal) ;;xxx

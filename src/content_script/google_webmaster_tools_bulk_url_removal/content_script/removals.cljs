@@ -16,8 +16,7 @@
 ;;   )
 
 (defn setup-ui [background-port]
-  (let [_ (prn "calling setup-ui") ;; xxx
-        clear-db-btn-el (hipo/create [:div [:button {:type "button"
+  (let [clear-db-btn-el (hipo/create [:div [:button {:type "button"
                                                      :on-click (fn [_]
                                                                  (log "clear victims from local storage.") ;;xxx
                                                                  (clear-victims!)
