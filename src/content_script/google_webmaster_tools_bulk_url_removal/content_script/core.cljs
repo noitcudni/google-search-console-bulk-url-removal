@@ -98,11 +98,13 @@
       (let [txt (dommy/text el)
             _ (prn "update-removal-status: txt: " txt) ; xxx
             [url & more] (clojure.string/split txt #" ")]
-        ;; TODO update remove-ts
-        (<! (update-storage url
-                            "status" "removed"
-                            "remove-ts" (tc/to-long (t/now))
-                            ))))))
+
+        (when (re-find #"http" url) ;; make sure that it starts with http
+          (<! (update-storage url
+                              "status" "removed"
+                              "remove-ts" (tc/to-long (t/now))
+                              )))
+        ))))
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
 
