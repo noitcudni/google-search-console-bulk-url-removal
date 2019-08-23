@@ -48,34 +48,44 @@
 
 
 (defn setup-ui [background-port]
-  (let [file-input-el (hipo/create [:div [:input {:id "fileInput" :type "file"
-                                                  :on-change (fn [e] (put! upload-chan e))
-                                                  }]])
-        drop-down-el (hipo/create [:div [:select {:id "global-removal-method"}
-                                         [:option {:value "PAGE"}
-                                          "Remove page from search results and cache"]
-                                         [:option {:value "PAGE_CACHE"}
-                                          "Remove page from cache only"]
-                                         [:option {:value "DIRECTORY"}
-                                          "Remove Directory"]]])
+  (let [file-input-el (hipo/create [:div
+                                    [:input {:id "fileInput" :type "file"
+                                             :on-change (fn [e] (put! upload-chan e))
+                                             }]])
+        drop-down-el (hipo/create [:div
+                                   [:select {:id "global-removal-method"}
+                                    [:option {:value "PAGE"}
+                                     "Remove page from search results and cache"]
+                                    [:option {:value "PAGE_CACHE"}
+                                     "Remove page from cache only"]
+                                    [:option {:value "DIRECTORY"}
+                                     "Remove Directory"]]])
 
-        clear-db-btn-el (hipo/create [:div [:button {:type "button"
-                                                     :on-click (fn [_]
-                                                                 (log "clear victims from local storage.") ;;xxx
-                                                                 (clear-victims!)
-                                                                 )}
-                                            "Clear local storage"]
-                                      ])
-        print-db-btn-el (hipo/create [:div [:button {:type "button"
-                                                     :on-click (fn [_]
-                                                                 (log "print db btn clicked!")
-                                                                 (print-victims))
-                                                     }
-                                            "View local storage"
-                                            ]])]
+        clear-db-btn-el (hipo/create [:div
+                                      [:button {:type "button"
+                                                :on-click (fn [_]
+                                                            (log "clear victims from local storage.") ;;xxx
+                                                            (clear-victims!)
+                                                            )}
+                                       "Clear local storage"]])
+        print-db-btn-el (hipo/create [:div
+                                      [:button {:type "button"
+                                                :on-click (fn [_]
+                                                            (log "print db btn clicked!")
+                                                            (print-victims))
+                                                }
+                                       "View local storage"
+                                       ]])
+        br-el (hipo/create [:br])
+        ]
+    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
     (dommy/append! (sel1 :#create-removal_button) file-input-el)
+    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
     (dommy/append! (sel1 :#create-removal_button) drop-down-el)
+    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
+    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
     (dommy/append! (sel1 :#create-removal_button) clear-db-btn-el)
+    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
     (dommy/append! (sel1 :#create-removal_button) print-db-btn-el)
     ))
 

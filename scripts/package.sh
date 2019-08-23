@@ -41,8 +41,10 @@ cp -RL "$RELEASE_BUILD" "$PACKAGE_DIR"
 
 
 # prune release directory from extra files/folders
+echo "$PACKAGE_DIR/compiled/background"
 rm -rf "$PACKAGE_DIR/compiled/background"
-rm -rf "$PACKAGE_DIR/compiled/content_script"
+rm -rf "$PACKAGE_DIR/compiled/content-script"
+rm -rf "$PACKAGE_DIR/compiled/removals_request"
 rm -rf "$PACKAGE_DIR/compiled/popup"
 
 echo "'$PACKAGE_DIR' prepared for packing"
