@@ -100,17 +100,26 @@
     ))
 
 
-(defn update-removal-status []
-  ;; the status message should read "https://polymorphiclabs.io/tags-output/mobile%20app/ has been added for removal."
-  (go
-    (prn "update-removal-status: " (sel1 ".status-message-text"))
-    (when-let [el (sel1 ".status-message-text")]
-      (let [txt (dommy/text el)
-            _ (prn "update-removal-status: txt: " txt) ; xxx
-            [url & more] (clojure.string/split txt #" ")]
+(defn most-recent-table-grid-entry []
+  (when-let [el (sel1 "tr.first")]
+    (-> el
+        dommy/text
+        clojure.string/trim
+        (clojure.string/split #"\n")
+        first
+        (clojure.string/replace #" " "%20"))))
 
-        (when (re-find #"http" url) ;; make sure that it starts with http
-          (<! (update-storage url
+(defn update-removal-status
+  "Grab the most recent table entry and compare that against what we think the most recent url instead of
+  grabbing the url from the status message."
+  []
+  (go
+    (when-let [most-recent-url (most-recent-table-grid-entry)]
+      (prn "update-removal-status -> most-recent-url: " most-recent-url)
+      (when-let [[curr-removal-url _] (<! (current-removal-attempt))]
+        (prn "update-removal-status -> curr-removal-url: " curr-removal-url)
+        (when (= curr-removal-url most-recent-url)
+          (<! (update-storage curr-removal-url
                               "status" "removed"
                               "remove-ts" (tc/to-long (t/now))
                               )))
@@ -159,7 +168,7 @@
       (let [_ (prn "Inside go block.") ;;xxx
             curr-removal (<! (current-removal-attempt))
             _ (prn "curr-removal: " curr-removal) ;;xxx
-            outstanding-failed-attempt? (->> curr-removal empty? not)]
+            outstanding-failed-attempt? (->> curr-removal nil? not)]
         (if outstanding-failed-attempt?
           (setup-continue-ui background-port) ;; pause since we have an outstanding failure.
           (post-message! background-port (common/marshall {:type :next-victim}))

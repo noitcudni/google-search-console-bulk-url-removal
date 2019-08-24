@@ -99,21 +99,17 @@
   Return URL if found.
   "
   []
-  (let [local-storage (storage/get-local)
-        ch (chan)
-        ]
+  (let [local-storage (storage/get-local)]
     (go
       (let [[[items] error] (<! (storage-area/get local-storage))]
-        (>! ch
-            (or (->> items
-                     js->clj
-                     (filter (fn [[k v]]
-                               (= "removing" (get v "status"))
-                               ))
-                     first)
-                   []))
+        (->> items
+             js->clj
+             (filter (fn [[k v]]
+                       (= "removing" (get v "status"))
+                       ))
+             first)
         ))
-    ch))
+    ))
 
 ;; (defn pending-victim-cnt []
 ;;   (let [local-storage (storage/get-local)
