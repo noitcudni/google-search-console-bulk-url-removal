@@ -34,6 +34,10 @@ While the extension is at a paused state, you can also inspect what URLs are sti
 ## CSV Format
 url (required), method-of-removal (optional options: PAGE, PAGE_CACHE, DIRECTORY)
 
+* **PAGE**       : corresponds to **Remove page from search results and cache**
+* **PAGE_CACHE** : corresponds to **Remove page from cache only**
+* **DRIECTORY**  : corresponds to **Remove Directory**
+
 **NOTE**: method-of-removal inside CSV overrides the global removal option.
 
 ## Bulk Outdated Content Removal
