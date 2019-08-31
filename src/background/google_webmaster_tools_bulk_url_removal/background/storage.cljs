@@ -12,47 +12,6 @@
 ;; (remove this keys)
 ;; (clear this)
 
-;; TODO: remove me later
-#_(defn test-storage! []
-  (let [local-storage (storage/get-local)
-        _ (set local-storage #js {"key1" "string"
-                                  "key2" #js [1 2 3]
-                                  "key3" true
-                                  "key4" nil})
-        _ (set local-storage #js {"key5" #js {"foo" "bar"}})
-        ]
-    (go
-      (let [[[items] error] (<! (get local-storage))]
-        (if error
-          (error "fetch all error:" error)
-          (log "fetch all:" items))))
-    (go
-      (let [[[items] error] (<! (get local-storage "key1"))]
-        (if error
-          (error "fetch key1 error:" error)
-          (log "fetch key1:" items))))
-    (go
-      (let [[[items] error] (<! (get local-storage #js ["key2" "key3"]))]
-        (if error
-          (error "fetch key2 and key3 error:" error)
-          (log "fetch key2 and key3:" items))))
-    (go
-      (let [[[items] error] (<! (get local-storage "fake-key"))]
-        (if error
-          (error "fetch fake-key error:" error)
-          (log "fetch fake-key:" items)))
-      )))
-
-#_{:url_v  {:method_v_1 {:submit-ts __ :remove-ts __ :status :removed :idx 0}
-            :method_v_2 {:submit-ts __ :remove-ts __ :status :pending :idx 1}
-            :method_v_3 {:submit-ts __ :remove-ts __ :status :pending :idx 2}
-            }}
-
-;; (tc/to-date (tc/from-long (tc/to-long (t/now))))
-;; [cljs-time.format :as tf] tf/formatter
-;; {"https://polymorphiclabs.io/tags-output/mobile%20app/" {"PAGE_CACHE" {"idx" 0, "remove-ts" nil, "status" "pending", "submit-ts" 1565375547359}}, "https://polymorphiclabs.io/tags-output/re-natal/" {"PAGE_CACHE" {"idx" 1, "remove-ts" nil, "status" "pending", "submit-ts" 1565375547363}}, "key1" "string", "key2" [1 2 3], "key3" true, "key4" nil, "key5" {"foo" "bar"}}
-
-
 (defn store-victims!
   "status: pending, removed, removing"
   [{:keys [global-removal-method data]}]

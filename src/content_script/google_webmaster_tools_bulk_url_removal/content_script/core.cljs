@@ -109,6 +109,30 @@
         first
         (clojure.string/replace #" " "%20"))))
 
+
+(defn skip-has-already-been-removed-request
+  "If the removal request has previously been made, update its status as removed"
+  []
+  ;; <span class="status-message-text>"
+  ;; A removal request for this URL has already been made.
+  ;; TODO: work in progress
+  (go
+    (if-let [r (when-let [el (sel1 "span.status-message-text")]
+                 (when-let [[curr-removal-url _] (<! (current-removal-attempt))]
+                   (when (= (-> el
+                                dommy/text
+                                clojure.string/trim) "A removal request for this URL has already been made.")
+                     ;; NOTE: The removal timestamp is not accurate.
+                     ;; It has been removed previously. Just need to update it so that it'll move along
+                     (<! (update-storage curr-removal-url
+                                         "status" "removed"
+                                         "remove-ts" (tc/to-long (t/now))
+                                         ))
+                     )))]
+      r
+      "DO Nothing" ;; can't put nil on a channel
+      )))
+
 (defn update-removal-status
   "Grab the most recent table entry and compare that against what we think the most recent url instead of
   grabbing the url from the status message."
@@ -162,6 +186,7 @@
     (go
       (<! (async/timeout 1500)) ;; wait a bit for the ui to update
       (<! (update-removal-status))
+      (<! (skip-has-already-been-removed-request))
       (setup-ui background-port)
       (common/connect-to-background-page! background-port process-message!)
 
