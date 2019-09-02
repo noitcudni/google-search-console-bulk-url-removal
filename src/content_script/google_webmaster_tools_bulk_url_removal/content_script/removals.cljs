@@ -41,6 +41,8 @@
                                    first
                                    clojure.string/trim
                                    (clojure.string/replace #" " "%20"))
+            _ (prn "victim-url-from-ui: " victim-url-from-ui)
+            _ (prn "victim-url:         " victim-url)
             ]
         ;; TODO check to make sure that it matches the ui
         (when (= victim-url victim-url-from-ui)

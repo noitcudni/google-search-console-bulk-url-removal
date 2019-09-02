@@ -29,8 +29,10 @@
 
 (defn fq-victim-url [victim-url]
   (let [domain-name (get-in (url (.. js/window -location -href)) [:query "siteUrl"])]
-    (if (clojure.string/starts-with? victim-url "http")
-      victim-url ;; already has domain name prepended to the victim url
-      (if (clojure.string/ends-with? victim-url "/")
-        (str (url domain-name victim-url) "/")
-        (str (url domain-name victim-url))))))
+    (-> (if (clojure.string/starts-with? victim-url "http")
+          victim-url ;; already has domain name prepended to the victim url
+          (if (clojure.string/ends-with? victim-url "/")
+            (str (url domain-name victim-url) "/")
+            (str (url domain-name victim-url))))
+        (clojure.string/replace #" " "%20")
+        )))
