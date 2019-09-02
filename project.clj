@@ -6,6 +6,7 @@
                  [binaryage/devtools "0.9.10"]
                  [com.cognitect/transit-cljs "0.8.256"]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
+                 [com.cemerick/url "0.1.1"]
                  [hipo "0.5.2"]
                  [prismatic/dommy "1.1.0"]
                  [testdouble/clojurescript.csv "0.4.3"]

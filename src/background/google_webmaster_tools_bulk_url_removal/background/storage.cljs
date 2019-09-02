@@ -70,20 +70,6 @@
         ))
     ))
 
-;; (defn pending-victim-cnt []
-;;   (let [local-storage (storage/get-local)
-;;         ch (chan)]
-;;     (go
-;;       (let [[[items] error] (<! (get local-storage))]
-;;         (>! ch (->> (or items '())
-;;                     js->clj
-;;                     (filter (fn [[k v]]
-;;                               (let [status (get v "status")]
-;;                                 (= "pending" status))))
-;;                     count))
-;;         ))
-;;     ch))
-
 
 (defn fresh-new-victim []
   (let [local-storage (storage/get-local)

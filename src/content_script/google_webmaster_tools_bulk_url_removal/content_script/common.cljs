@@ -2,7 +2,8 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [cljs.core.async :refer [<! >! put! chan]]
             [chromex.logging :refer-macros [log info warn error group group-end]]
-            [cognitect.transit :as t]))
+            [cognitect.transit :as t]
+            [cemerick.url :refer [url]]))
 
 (defn run-message-loop! [message-channel message-handler!]
   (log "CONTENT SCRIPT: starting message loop...")
@@ -25,3 +26,11 @@
 (defn unmarshall [msg-str]
   (let [r (t/reader :json)]
     (t/read r msg-str)))
+
+(defn fq-victim-url [victim-url]
+  (let [domain-name (get-in (url (.. js/window -location -href)) [:query "siteUrl"])]
+    (if (clojure.string/starts-with? victim-url "http")
+      victim-url ;; already has domain name prepended to the victim url
+      (if (clojure.string/ends-with? victim-url "/")
+        (str (url domain-name victim-url) "/")
+        (str (url domain-name victim-url))))))

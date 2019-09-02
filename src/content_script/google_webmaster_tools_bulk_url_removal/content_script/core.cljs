@@ -15,13 +15,6 @@
             [cljs-time.coerce :as tc]
             ))
 
-;; TODO: add a pause button in the popup
-;; TODO: store the to-be-removed urls into local-storage
-;; TODO: need a way to clear all history
-;; TODO: show the ones that are skipped due to history
-;; TODO: provide a way to search and toggle history
-;; TODO: if reaches quota limit, pause automatically
-
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
 
 (defn process-message! [chan message]
@@ -141,8 +134,7 @@
     (when-let [most-recent-url (most-recent-table-grid-entry)]
       (prn "update-removal-status -> most-recent-url: " most-recent-url)
       (when-let [[curr-removal-url _] (<! (current-removal-attempt))]
-        (prn "update-removal-status -> curr-removal-url: " curr-removal-url)
-        (when (= curr-removal-url most-recent-url)
+        (when (= (common/fq-victim-url curr-removal-url) most-recent-url)
           (<! (update-storage curr-removal-url
                               "status" "removed"
                               "remove-ts" (tc/to-long (t/now))
