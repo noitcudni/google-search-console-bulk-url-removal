@@ -100,7 +100,8 @@
         clojure.string/trim
         (clojure.string/split #"\n")
         first
-        (clojure.string/replace #" " "%20"))))
+        common/normalize-url-encoding
+        )))
 
 
 (defn skip-has-already-been-removed-request

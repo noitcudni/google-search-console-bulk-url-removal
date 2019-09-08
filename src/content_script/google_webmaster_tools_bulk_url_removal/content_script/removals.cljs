@@ -40,7 +40,7 @@
                                    (clojure.string/split #",")
                                    first
                                    clojure.string/trim
-                                   (clojure.string/replace #" " "%20"))
+                                   common/normalize-url-encoding)
             _ (prn "victim-url-from-ui: " victim-url-from-ui)
             _ (prn "victim-url:         " victim-url)
             ]

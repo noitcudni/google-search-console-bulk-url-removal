@@ -27,12 +27,23 @@
   (let [r (t/reader :json)]
     (t/read r msg-str)))
 
+(defn normalize-url-encoding [fq-url]
+  (let [url-parts (cemerick.url/url fq-url)
+        normalized-path (-> url-parts
+                            :path
+                            (subs 1)
+                            cemerick.url/url-decode
+                            cemerick.url/url-encode
+                            )]
+    (-> url-parts
+        (assoc :path (str "/" normalized-path))
+        str
+        )))
+
 (defn fq-victim-url [victim-url]
   (let [domain-name (get-in (url (.. js/window -location -href)) [:query "siteUrl"])]
-    (-> (if (clojure.string/starts-with? victim-url "http")
-          victim-url ;; already has domain name prepended to the victim url
-          (if (clojure.string/ends-with? victim-url "/")
-            (str (url domain-name victim-url) "/")
-            (str (url domain-name victim-url))))
-        (clojure.string/replace #" " "%20")
-        )))
+    (-> (cond (clojure.string/starts-with? victim-url "http") victim-url
+              (clojure.string/ends-with? victim-url "/") (str (url domain-name victim-url) "/")
+              :else (str (url domain-name victim-url)))
+        normalize-url-encoding)
+    ))
