@@ -9,7 +9,7 @@ https://chrome.google.com/webstore/detail/webmaster-tools-bulk-url/pmnpibilljafe
 4. `cd` into the project root directory.
   * Run in the terminal
   ```bash
-  len release && lein package
+  lein release && lein package
   ```
 5. Go to **chrome://extensions/** and turn on Developer mode.
 6. Click on **Load unpacked extension . . .** and load the extension.
