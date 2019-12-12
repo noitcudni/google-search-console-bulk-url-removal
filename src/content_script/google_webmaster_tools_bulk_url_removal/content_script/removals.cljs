@@ -37,9 +37,13 @@
             _ (prn "Inside removals' go block: " curr-removal)
             victim-url (common/fq-victim-url victim-url)
             victim-url-from-ui (-> (dommy/text (sel1 ".url-to-be-removed"))
-                                   (clojure.string/split #",")
-                                   first
                                    clojure.string/trim
+                                   (clojure.string/split #"\s+")
+                                   first
+                                   ((fn [x]
+                                      (if (= (last x) \,)
+                                        (subs x 0 (dec (count x)))
+                                        x)))
                                    common/normalize-url-encoding)
             _ (prn "victim-url-from-ui: " victim-url-from-ui)
             _ (prn "victim-url:         " victim-url)
