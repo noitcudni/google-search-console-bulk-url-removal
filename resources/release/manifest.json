@@ -1,6 +1,6 @@
 {
   "name": "WebMaster Tools - Bulk URL removal",
-  "version": "0.12",
+  "version": "0.13",
   "browser_action": {
     "default_title": "Show the popup",
     "default_popup": "popup.html"
