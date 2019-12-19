@@ -36,17 +36,20 @@
       (let [[victim-url victim-entry :as curr-removal] (<! (current-removal-attempt))
             _ (prn "Inside removals' go block: " curr-removal)
             victim-url (common/fq-victim-url victim-url)
-            victim-url-from-ui (->> (-> (dommy/text (sel1 ".url-to-be-removed"))
-                                        clojure.string/trim
-                                        (clojure.string/split #",")
-                                        butlast)
-                                    (clojure.string/join ",")
-                                    common/normalize-url-encoding)
+            victim-url-from-ui (-> (dommy/html (sel1 ".url-to-be-removed"))
+                                   (clojure.string/split #"<strong>")
+                                   first
+                                   clojure.string/trim
+                                   ((fn [x]
+                                      (if (= (last x) \,)
+                                        (subs x 0 (dec (count x)))
+                                        x)))
+                                   common/normalize-url-encoding)
             _ (prn "victim-url-from-ui: " victim-url-from-ui)
             _ (prn "victim-url:         " victim-url)
             ]
 
-        ;; TODO check to make sure that it matches the ui
+        ;; check to make sure that it matches the ui
         (when (= victim-url victim-url-from-ui)
           (dommy/set-value! (sel1 "select[name=\"removalmethod\"]") (get victim-entry "removal-method"))
           (.click (sel1 "input[name=\"next\"]")))
