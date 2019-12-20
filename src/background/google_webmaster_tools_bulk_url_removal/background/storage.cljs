@@ -20,7 +20,10 @@
               idx 0]
       (if (nil? curr)
         (log "DONE storing victims")
-        (let [removal-method (or optional-removal-method global-removal-method)
+        (let [removal-method (cond (contains? #{"PAGE", "PAGE_CACHE", "DIRECTORY"} optional-removal-method) optional-removal-method
+                                   (empty? optional-removal-method) global-removal-method
+                                   ;; TODO: show an error message in a modal dialog
+                                   )
               [[items] error] (<! (storage-area/get local-storage url))]
           (if error
             (error (str "fetching " url ":") error)
