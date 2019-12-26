@@ -37,7 +37,6 @@
                             )]
     (-> url-parts
         (assoc :path (str "/" normalized-path))
-        str
         )))
 
 (defn fq-victim-url [victim-url]

@@ -1,6 +1,7 @@
 (ns google-webmaster-tools-bulk-url-removal.content-script.removals
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [cljs.core.async :refer [<! >! put! chan]]
+            [goog.string :as gstring]
             [hipo.core :as hipo]
             [dommy.core :refer-macros [sel sel1] :as dommy]
             [chromex.ext.runtime :as runtime :refer-macros [connect]]
@@ -40,6 +41,7 @@
                                    (clojure.string/split #"<strong>")
                                    first
                                    clojure.string/trim
+                                   gstring/unescapeEntities
                                    ((fn [x]
                                       (if (= (last x) \,)
                                         (subs x 0 (dec (count x)))
