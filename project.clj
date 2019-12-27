@@ -9,7 +9,7 @@
                  [com.cemerick/url "0.1.1"]
                  [hipo "0.5.2"]
                  [prismatic/dommy "1.1.0"]
-                 [testdouble/clojurescript.csv "0.4.3"]
+                 [testdouble/clojurescript.csv "0.4.5"]
                  [figwheel "0.5.19"]
                  [environ "1.1.0"]]
 
