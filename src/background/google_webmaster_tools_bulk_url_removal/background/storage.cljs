@@ -29,11 +29,11 @@
             (error (str "fetching " url ":") error)
             (do (log "setting url: " url " | method: " removal-method)
                 (storage-area/set local-storage (clj->js {url {"submit-ts" (tc/to-long (t/now))
-                                                  "remove-ts" nil
-                                                  "removal-method" removal-method
-                                                  "status" "pending"
-                                                  "idx" idx}
-                                             }))))
+                                                               "remove-ts" nil
+                                                               "removal-method" removal-method
+                                                               "status" "pending"
+                                                               "idx" idx}
+                                                          }))))
           (recur more (inc idx)))
         ))
     ))
@@ -81,6 +81,7 @@
       (let [[[items] error] (<! (storage-area/get local-storage))
             [victim-url victim-entry] (->> (or items '())
                                            js->clj
+                                           (sort-by (fn [[_ v]] (get v "idx")))
                                            (filter (fn [[k v]]
                                                      (let [status (get v "status")]
                                                        (= "pending" status))))
