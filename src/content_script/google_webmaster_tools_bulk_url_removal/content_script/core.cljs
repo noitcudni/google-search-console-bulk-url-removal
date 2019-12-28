@@ -13,6 +13,7 @@
                                                                                 current-removal-attempt]]
             [cljs-time.core :as t]
             [cljs-time.coerce :as tc]
+            [cemerick.url :refer [url]]
             ))
 
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
@@ -39,6 +40,13 @@
 
 (def read-chan (chan 1 (map #(-> % .-target .-result js->clj))))
 
+
+(defn ensure-english-setting []
+  (let [url-parts (url (.. js/window -location -href))]
+    (when-not (= "en" (get-in url-parts [:query "hl"]))
+      (js/alert "Bulk URL Removal extension works properly only in English. Press OK to set the language to English.")
+      (set! (.. js/window -location -href) (str (assoc-in url-parts [:query "hl"] "en")))
+      )))
 
 (defn setup-ui [background-port]
   (let [file-input-el (hipo/create [:div
@@ -180,6 +188,7 @@
       (<! (async/timeout 1500)) ;; wait a bit for the ui to update
       (<! (update-removal-status))
       (<! (skip-has-already-been-removed-request))
+      (ensure-english-setting)
       (setup-ui background-port)
       (common/connect-to-background-page! background-port process-message!)
 

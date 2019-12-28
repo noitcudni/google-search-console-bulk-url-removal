@@ -4,7 +4,7 @@
 */
 {
   "name":  "WebMaster Tools - Bulk URL removal",
-  "version": "0.18",
+  "version": "0.19",
   "browser_action": {
     "default_title": "Show the popup",
     "default_popup": "popup.html"
@@ -41,6 +41,7 @@
     "persistent": false
   },
   "permissions": [
+    "tabs",
     "storage",
     "unlimitedStorage",
     "https://www.google.com/webmasters/*"
