@@ -22,7 +22,8 @@
         (log "DONE storing victims")
         (let [removal-method (cond (contains? #{"PAGE", "PAGE_CACHE", "DIRECTORY"} optional-removal-method) optional-removal-method
                                    (empty? optional-removal-method) global-removal-method
-                                   ;; TODO: show an error message in a modal dialog
+                                   ;; Pass along the erroneous removal-method. It will be handled later
+                                   :else optional-removal-method
                                    )
               [[items] error] (<! (storage-area/get local-storage url))]
           (if error

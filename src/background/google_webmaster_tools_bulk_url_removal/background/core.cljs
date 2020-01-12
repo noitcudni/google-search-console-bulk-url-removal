@@ -8,8 +8,10 @@
             [chromex.protocols.chrome-port :refer [post-message! get-sender]]
             [chromex.ext.tabs :as tabs]
             [chromex.ext.runtime :as runtime]
+            [chromex.ext.windows :as cwin :refer-macros [create]]
             [cognitect.transit :as t]
-            [google-webmaster-tools-bulk-url-removal.background.storage :refer [store-victims! update-storage next-victim]]
+            [chromex.ext.browser-action :refer-macros [set-badge-text set-badge-background-color]]
+            [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! store-victims! update-storage next-victim]]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             ))
 
@@ -17,14 +19,17 @@
 (def ^:export github-source-url "This project is from https://github.com/noitcudni/google-webmaster-tools-bulk-url-removal")
 (def clients (atom []))
 
+;; {:url :original-row-number :reason}
+(def bad-victims (atom []))
+
 ; -- clients manipulation ---------------------------------------------------------------------------------------------------
 
 (defn add-client! [client]
-  (log "BACKGROUND: client connected" (get-sender client))
+  (prn "BACKGROUND: client connected" (get-sender client))
   (swap! clients conj client))
 
 (defn remove-client! [client]
-  (log "BACKGROUND: client disconnected" (get-sender client))
+  (prn "BACKGROUND: client disconnected" (get-sender client))
   (let [remove-item (fn [coll item] (remove #(identical? item %) coll))]
     (swap! clients remove-item client)))
 
@@ -40,7 +45,11 @@
       (log "BACKGROUND: got client message:" message "from" (get-sender client))
       (let [{:keys [type] :as whole-edn} (common/unmarshall message)]
         (cond (= type :init-victims) (do
-                                       (prn "inside :init-victims: " whole-edn):done-init-victims
+                                       (prn "inside :init-victims: " whole-edn)
+                                       ;; clean up errors from the previous run
+                                       (reset! bad-victims [])
+                                       (clear-victims!)
+                                       (set-badge-text #js{"text" ""})
                                        (store-victims! whole-edn)
                                        (post-message! client (common/marshall {:type :done-init-victims})))
               (= type :next-victim) (do
@@ -56,6 +65,16 @@
                                                                              :removal-method (get victim-entry "removal-method")
                                                                              })))
                                           )))
+              (= type :skip-error) (do
+                                     (prn "inside :log-error:" whole-edn)
+                                     (let [{:keys [url reason]} whole-end]
+                                       (swap! bad-victims conj {:url url :reason reason})
+                                       (set-badge-text #js{"text" (->> @bad-victims
+                                                                       count
+                                                                       str)})
+                                       (set-badge-background-color #js{"color" "#F00"}))
+                                     ;; TODO: does someone else need to fire off a next victim event?
+                                     )
               ))
       (recur))
     (log "BACKGROUND: leaving event loop for client:" (get-sender client))
@@ -100,4 +119,11 @@
 
 (defn init! []
   (log "BACKGROUND: init")
+  ;; (let [ch (cwin/create (clj->js {:type "popup"
+  ;;                                 ;; :left 50 :top 50
+  ;;                                 :width 100 :height 100}))]
+  ;;   (go
+  ;;     (let [win (<! ch)]
+  ;;       (prn "win: " win)
+  ;;       )))
   (boot-chrome-event-loop!))
