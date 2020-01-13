@@ -4,7 +4,10 @@
             [chromex.logging :refer-macros [log info warn error group group-end]]
             [chromex.protocols.chrome-port :refer [post-message!]]
             [chromex.ext.runtime :as runtime :refer-macros [connect]]
+            [chromex.ext.downloads :refer-macros [download]]
+            [re-com.core :as recom]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
+            [reagent.core :as reagent :refer [atom]]
             ))
 
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
@@ -32,8 +35,36 @@
     (post-message! background-port (common/marshall {:type :fetch-initial-errors}))
     (run-message-loop! background-port)))
 
+(defn current-page []
+  (let [download-fn (fn []
+                      (let [content "csv content goes here"
+                            data-blob (js/Blob. (clj->js [content])
+                                                (clj->js {:type "text/csv"}))
+                            url (js/URL.createObjectURL data-blob)
+                            ]
+                        (download (clj->js {:url url
+                                            :filename "error.csv"
+                                            :saveAs true
+                                            :conflictAction "overwrite"
+                                            }))
+
+                        ))]
+    (fn []
+      [recom/v-box
+       :width "360px"
+       :children [
+                  [recom/button
+                   :label "Download CSV"
+                   :class "btn"
+                   :on-click download-fn
+                   ]]
+       ])))
+
 ; -- main entry point -------------------------------------------------------------------------------------------------------
+(defn mount-root []
+  (reagent/render [current-page] (.getElementById js/document "app")))
 
 (defn init! []
   (log "POPUP: init")
-  (connect-to-background-page!))
+  (connect-to-background-page!)
+  (mount-root))

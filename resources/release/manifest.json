@@ -39,6 +39,7 @@
   "permissions": [
     "tabs",
     "storage",
+    "downloads",
     "unlimitedStorage",
     "https://www.google.com/webmasters/*"
   ],
