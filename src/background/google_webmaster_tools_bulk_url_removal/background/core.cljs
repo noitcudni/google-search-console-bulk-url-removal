@@ -94,11 +94,13 @@
                                      ;; main page, which triggers another :next-victim event.
                                      (let [{:keys [url reason]} whole-edn
                                            error-entry {:url url :reason reason}
-                                           popup-client (prn "popup-client: " (get-popup-client))]
+                                           popup-client (get-popup-client)]
                                        (swap! bad-victims conj error-entry)
                                        (set-badge-text #js{"text" (->> @bad-victims count str)})
                                        (set-badge-background-color #js{"color" "#F00"})
                                        (when popup-client
+                                         (prn "sending popup-client " (common/marshall {:type :new-error
+                                                                                        :error error-entry}))
                                          (post-message! popup-client (common/marshall {:type :new-error
                                                                                        :error error-entry})))
                                        ))
