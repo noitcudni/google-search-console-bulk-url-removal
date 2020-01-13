@@ -5,7 +5,7 @@
             [cljs.core.async :refer [<! chan]]
             [chromex.logging :refer-macros [log info warn error group group-end]]
             [chromex.chrome-event-channel :refer [make-chrome-event-channel]]
-            [chromex.protocols.chrome-port :refer [post-message! get-sender]]
+            [chromex.protocols.chrome-port :refer [on-disconnect! post-message! get-sender]]
             [chromex.ext.tabs :as tabs]
             [chromex.ext.runtime :as runtime]
             [chromex.ext.windows :as cwin :refer-macros [create]]
@@ -25,13 +25,34 @@
 ; -- clients manipulation ---------------------------------------------------------------------------------------------------
 
 (defn add-client! [client]
-  (prn "BACKGROUND: client connected" (get-sender client))
+  (prn "BACKGROUND: client connected: " (get-sender client))
+  (on-disconnect! client (fn []
+                           ;; https://github.com/binaryage/chromex/blob/master/src/lib/chromex/protocols/chrome_port.cljs
+                           (prn "on disconnect callback !!!")
+                           ;; cleanup
+                           (swap! clients (fn [curr c] (->> curr (remove #(= % c)))) client)))
   (swap! clients conj client))
 
 (defn remove-client! [client]
   (prn "BACKGROUND: client disconnected" (get-sender client))
   (let [remove-item (fn [coll item] (remove #(identical? item %) coll))]
     (swap! clients remove-item client)))
+
+
+(defn get-popup-client []
+  (->> @clients
+       ;; (map (fn [c]
+       ;;        (-> c
+       ;;            get-sender
+       ;;            js->clj)
+       ;;        ))
+       ;; (map #(get % "url"))
+       (filter (fn [c] (re-find #"popup.html" (-> c
+                                                  get-sender
+                                                  js->clj
+                                                  (get "url")))))
+       first ;;this should only be one popup
+       ))
 
 ; -- client event loop ------------------------------------------------------------------------------------------------------
 #_{:url_v  {:method_v_1 {:submit-ts __ :remove-ts __ :status :done}
@@ -66,15 +87,26 @@
                                                                              })))
                                           )))
               (= type :skip-error) (do
-                                     (prn "inside :log-error:" whole-edn)
-                                     (let [{:keys [url reason]} whole-end]
-                                       (swap! bad-victims conj {:url url :reason reason})
-                                       (set-badge-text #js{"text" (->> @bad-victims
-                                                                       count
-                                                                       str)})
-                                       (set-badge-background-color #js{"color" "#F00"}))
-                                     ;; TODO: does someone else need to fire off a next victim event?
-                                     )
+                                     (prn "inside :skip-error:" whole-edn)
+                                     ;; NOTE: Does someone else need to fire off a next victim event?
+                                     ;; No, in removals.cljs. After firing off :skip-error message,
+                                     ;; it clicks on cancel right away. This brings the page back to the
+                                     ;; main page, which triggers another :next-victim event.
+                                     (let [{:keys [url reason]} whole-edn
+                                           error-entry {:url url :reason reason}
+                                           popup-client (prn "popup-client: " (get-popup-client))]
+                                       (swap! bad-victims conj error-entry)
+                                       (set-badge-text #js{"text" (->> @bad-victims count str)})
+                                       (set-badge-background-color #js{"color" "#F00"})
+                                       (when popup-client
+                                         (post-message! popup-client (common/marshall {:type :new-error
+                                                                                       :error error-entry})))
+                                       ))
+
+              (= type :fetch-initial-errors) (do
+                                               (prn "inside :fetch-initial-errors: ")
+                                               (post-message! client (common/marshall {:type :init-errors
+                                                                                       :bad-victims @bad-victims})))
               ))
       (recur))
     (log "BACKGROUND: leaving event loop for client:" (get-sender client))
@@ -84,6 +116,8 @@
 
 (defn handle-client-connection! [client]
   (add-client! client)
+  (prn ">> number of client: " (count @clients)) ;;xxx
+
   ;; (post-message! client "hello from BACKGROUND PAGE!")
   (run-client-message-loop! client))
 
@@ -95,7 +129,9 @@
 
 (defn process-chrome-event [event-num event]
   (log (gstring/format "BACKGROUND: got chrome event (%05d)" event-num) event)
-  (let [[event-id event-args] event]
+  (let [[event-id event-args] event
+        _ (prn "event-id: " event-id) ;;xxx
+        ]
     (case event-id
       ::runtime/on-connect (apply handle-client-connection! event-args)
       ;; ::tabs/on-created (tell-clients-about-new-tab!)
