@@ -35,10 +35,10 @@
     (setup-ui background-port)
 
     (go
-      (let [[victim-url victim-entry :as curr-removal] (<! (current-removal-attempt))]
+      (let [[victim-url-key victim-entry :as curr-removal] (<! (current-removal-attempt))]
         (try
           (let [_ (prn "Inside removals' go block: " curr-removal)
-                victim-url (common/fq-victim-url victim-url)
+                victim-url (common/fq-victim-url victim-url-key)
                 victim-url-from-ui (-> (dommy/html (sel1 ".url-to-be-removed"))
                                        (clojure.string/split #"<strong>")
                                        first
@@ -64,13 +64,13 @@
                   (do (post-message! background-port (common/marshall
                                                       {:type :skip-error
                                                        :reason :weird-characters
-                                                       :url (str victim-url)}))
+                                                       :url victim-url-key}))
                       (.click (sel1 "input[name=\"cancel\"]")))
                   (not (contains? #{"PAGE" "PAGE_CACHE" "DIRECTORY"} (get victim-entry "removal-method")))
                   (do (post-message! background-port (common/marshall
                                                       {:type :skip-error
                                                        :reason :invalid-removal-method
-                                                       :url (str victim-url)}))
+                                                       :url victim-url-key}))
                       (.click (sel1 "input[name=\"cancel\"]")))
                   :else ;; happy case
                   (do (dommy/set-value! (sel1 "select[name=\"removalmethod\"]") (get victim-entry "removal-method"))
@@ -80,6 +80,6 @@
             (post-message! background-port (common/marshall
                                             {:type :skip-error
                                              :reason :unknown
-                                             :url victim-url}))
+                                             :url victim-url-key}))
             ))))
     ))

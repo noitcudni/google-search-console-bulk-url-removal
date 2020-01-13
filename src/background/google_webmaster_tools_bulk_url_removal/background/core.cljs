@@ -85,7 +85,22 @@
                                                                              :victim victim-url
                                                                              :removal-method (get victim-entry "removal-method")
                                                                              })))
-                                          )))
+                                          )
+                                        #_(let [all-done? (<! (done?))
+                                              _ (prn "all-done?: " all-done?)]
+                                          (if all-done?
+                                            (prn "DONE!!!")
+                                            (let [[victim-url victim-entry] (<! (next-victim))
+                                                  _ (prn "BACKGROUND: victim-url: " victim-url)
+                                                  _ (prn "BACKGROUND: victim-entry: " victim-entry)]
+                                              (if (and victim-url victim-entry)
+                                                (post-message! client
+                                                               (common/marshall {:type :remove-url
+                                                                                 :victim victim-url
+                                                                                 :removal-method (get victim-entry "removal-method")
+                                                                                 })))
+                                              )))
+                                        ))
               (= type :skip-error) (do
                                      (prn "inside :skip-error:" whole-edn)
                                      ;; NOTE: Does someone else need to fire off a next victim event?
@@ -95,7 +110,11 @@
                                      (let [{:keys [url reason]} whole-edn
                                            error-entry {:url url :reason reason}
                                            popup-client (get-popup-client)]
-                                       (swap! bad-victims conj error-entry)
+                                       (swap! bad-victims conj error-entry) ;; TODO: do we even need this?
+                                       (update-storage url
+                                                       "status" "error"
+                                                       "error-reason" reason)
+
                                        (set-badge-text #js{"text" (->> @bad-victims count str)})
                                        (set-badge-background-color #js{"color" "#F00"})
                                        (when popup-client

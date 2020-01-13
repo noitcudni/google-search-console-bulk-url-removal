@@ -13,7 +13,7 @@
 ;; (clear this)
 
 (defn store-victims!
-  "status: pending, removed, removing"
+  "status: pending, removed, removing, error"
   [{:keys [global-removal-method data]}]
   (let [local-storage (storage/get-local)]
     (go-loop [[[url optional-removal-method :as curr] & more] data
@@ -94,7 +94,7 @@
     ch))
 
 (defn next-victim []
-  (let [local-storage (storage/get-local)
+  (let [;;local-storage (storage/get-local)
         ch (chan)]
     (go
       (let [victim (<! (current-removal-attempt))
@@ -109,6 +109,24 @@
 (defn clear-victims! []
   (let [local-storage (storage/get-local)]
     (storage-area/clear local-storage)))
+
+
+(defn done? []
+  (let [local-storage (storage/get-local)
+        ch (chan)]
+    (go
+      (let [[[items] error] (<! (storage-area/get local-storage))
+            unfinished-cnt (->> (or items '())
+                                js->clj
+                                (filter (fn [[k v]]
+                                          (let [status (get v "status")]
+                                            (or (= "removing" status) (= "pending" status)))))
+                                count)
+            ]
+        (>! ch (= unfinished-cnt 0))
+        ))
+    ch
+    ))
 
 (defn print-victims []
   (let [local-storage (storage/get-local)]

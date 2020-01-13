@@ -10,7 +10,7 @@
             [chromex.ext.runtime :as runtime :refer-macros [connect]]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! print-victims update-storage
-                                                                                current-removal-attempt]]
+                                                                                current-removal-attempt done?]]
             [cljs-time.core :as t]
             [cljs-time.coerce :as tc]
             [cemerick.url :refer [url]]
@@ -73,7 +73,11 @@
                                       [:button {:type "button"
                                                 :on-click (fn [_]
                                                             (log "print db btn clicked!")
-                                                            (print-victims))
+                                                            (print-victims)
+                                                            (go
+                                                              (prn (<! (done?))))
+                                                            )
+
                                                 }
                                        "View local storage"
                                        ]])
