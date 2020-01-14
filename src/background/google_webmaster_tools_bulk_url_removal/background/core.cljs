@@ -79,12 +79,15 @@
                                         (let [[victim-url victim-entry] (<! (next-victim))
                                               _ (prn "BACKGROUND: victim-url: " victim-url)
                                               _ (prn "BACKGROUND: victim-entry: " victim-entry)]
-                                          (if (and victim-url victim-entry)
-                                            (post-message! client
-                                                           (common/marshall {:type :remove-url
-                                                                             :victim victim-url
-                                                                             :removal-method (get victim-entry "removal-method")
-                                                                             })))
+                                          (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") "done-flag"))
+                                                (prn "DONE!!!")
+
+                                                (and victim-url victim-entry)
+                                                (post-message! client
+                                                               (common/marshall {:type :remove-url
+                                                                                 :victim victim-url
+                                                                                 :removal-method (get victim-entry "removal-method")
+                                                                                 })))
                                           )
                                         #_(let [all-done? (<! (done?))
                                               _ (prn "all-done?: " all-done?)]

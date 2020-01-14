@@ -15,7 +15,8 @@
 (defn store-victims!
   "status: pending, removed, removing, error"
   [{:keys [global-removal-method data]}]
-  (let [local-storage (storage/get-local)]
+  (let [local-storage (storage/get-local)
+        data (concat data '(("poison-pill" "done-flag")))]
     (go-loop [[[url optional-removal-method :as curr] & more] data
               idx 0]
       (if (nil? curr)
