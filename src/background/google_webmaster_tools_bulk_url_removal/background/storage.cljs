@@ -112,23 +112,6 @@
     (storage-area/clear local-storage)))
 
 
-(defn done? []
-  (let [local-storage (storage/get-local)
-        ch (chan)]
-    (go
-      (let [[[items] error] (<! (storage-area/get local-storage))
-            unfinished-cnt (->> (or items '())
-                                js->clj
-                                (filter (fn [[k v]]
-                                          (let [status (get v "status")]
-                                            (or (= "removing" status) (= "pending" status)))))
-                                count)
-            ]
-        (>! ch (= unfinished-cnt 0))
-        ))
-    ch
-    ))
-
 (defn print-victims []
   (let [local-storage (storage/get-local)]
     (go
