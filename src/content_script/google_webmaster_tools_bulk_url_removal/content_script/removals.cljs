@@ -77,9 +77,10 @@
                       (.click (sel1 "input[name=\"next\"]"))))
             )
           (catch js/Object e
-            (post-message! background-port (common/marshall
-                                            {:type :skip-error
-                                             :reason :unknown
-                                             :url victim-url-key}))
+            (do (post-message! background-port (common/marshall
+                                                {:type :skip-error
+                                                 :reason :unknown
+                                                 :url victim-url-key}))
+                (.click (sel1 "input[name=\"cancel\"]")))
             ))))
     ))

@@ -107,7 +107,7 @@
               (= type :skip-error) (do
                                      (prn "inside :skip-error:" whole-edn)
                                      ;; NOTE: Does someone else need to fire off a next victim event?
-                                     ;; No, in removals.cljs. After firing off :skip-error message,
+                                     ;; No, in removals.cljs, after firing off :skip-error message,
                                      ;; it clicks on cancel right away. This brings the page back to the
                                      ;; main page, which triggers another :next-victim event.
                                      (let [{:keys [url reason]} whole-edn
