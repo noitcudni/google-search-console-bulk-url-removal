@@ -7,6 +7,7 @@
             [chromex.ext.runtime :as runtime :refer-macros [connect]]
             [chromex.ext.downloads :refer-macros [download]]
             [re-com.core :as recom]
+            [testdouble.cljs.csv :as csv]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             [reagent.core :as reagent :refer [atom]]
             [google-webmaster-tools-bulk-url-removal.background.storage :refer [get-bad-victims]]
@@ -39,13 +40,18 @@
     (post-message! background-port (common/marshall {:type :fetch-initial-errors}))
     (run-message-loop! background-port)))
 
+(defn csv-content [input]
+  (->> input
+       clojure.walk/keywordize-keys
+       (map (fn [[url {:keys [error-reason removal-method] :as v}]]
+              [url error-reason removal-method]))))
+
 (defn current-page []
   (let [download-fn (fn []
-                      (let [content "csv content goes here"
+                      (let [content (-> @cached-bad-victims-atom csv-content csv/write-csv)
                             data-blob (js/Blob. (clj->js [content])
                                                 (clj->js {:type "text/csv"}))
-                            url (js/URL.createObjectURL data-blob)
-                            ]
+                            url (js/URL.createObjectURL data-blob)]
                         (download (clj->js {:url url
                                             :filename "error.csv"
                                             :saveAs true
