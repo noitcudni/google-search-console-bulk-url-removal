@@ -52,10 +52,22 @@
     (fn []
       [recom/v-box
        :width "360px"
+       :align :center
        :children [
+                  [recom/h-box
+                   :children [[recom/title :label "Error Count:" :level :level1]
+                              [recom/title :label "4" :level :level1]]]
+                  ;; [recom/h-box
+                  ;;  :children [[:h1 "Removed Count: "] [:h1 "5"]]]
                   [recom/button
                    :label "Download CSV"
-                   :class "btn"
+                   :style {:color            "white"
+                           :background-color  "#d9534f" #_(if @hover? "#0072bb" "#4d90fe")
+                           :font-size        "22px"
+                           :font-weight      "300"
+                           :border           "none"
+                           :border-radius    "0px"
+                           :padding          "20px 26px"}
                    :on-click download-fn
                    ]]
        ])))

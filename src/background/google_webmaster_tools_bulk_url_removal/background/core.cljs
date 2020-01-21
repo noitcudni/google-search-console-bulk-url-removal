@@ -19,9 +19,6 @@
 (def ^:export github-source-url "This project is from https://github.com/noitcudni/google-webmaster-tools-bulk-url-removal")
 (def clients (atom []))
 
-;; {:url :original-row-number :reason}
-(def bad-victims (atom []))
-
 ; -- clients manipulation ---------------------------------------------------------------------------------------------------
 
 (defn add-client! [client]
@@ -68,7 +65,6 @@
         (cond (= type :init-victims) (do
                                        (prn "inside :init-victims: " whole-edn)
                                        ;; clean up errors from the previous run
-                                       (reset! bad-victims [])
                                        (clear-victims!)
                                        (set-badge-text #js{"text" ""})
                                        (store-victims! whole-edn)
@@ -100,8 +96,6 @@
                                        (let [{:keys [url reason]} whole-edn
                                              error-entry {:url url :reason reason}
                                              popup-client (get-popup-client)]
-                                         ;; (swap! bad-victims conj error-entry) ;; TODO: do we even need this?
-                                         (prn "here0")
                                          (<! (update-storage url
                                                              "status" "error"
                                                              "error-reason" reason))
@@ -112,8 +106,6 @@
                                            (set-badge-text (clj->js {"text" error-cnt}))
                                            )
 
-                                         (prn "here2?")
-                                         ;; (set-badge-text #js{"text" (->> @bad-victims count str)})
                                          (set-badge-background-color #js{"color" "#F00"})
                                          ;; (when popup-client
                                          ;;   (prn "sending popup-client " (common/marshall {:type :new-error
@@ -122,10 +114,11 @@
                                          ;;                                                 :error error-entry})))
                                          )))
 
-              (= type :fetch-initial-errors) (do
-                                               (prn "inside :fetch-initial-errors: ")
-                                               (post-message! client (common/marshall {:type :init-errors
-                                                                                       :bad-victims @bad-victims})))
+              (= type :fetch-initial-errors) (go
+                                               (let [_ (prn "inside :fetch-initial-errors: ")
+                                                     bad-victims (<! (get-bad-victims))]
+                                                 (post-message! client (common/marshall {:type :init-errors
+                                                                                         :bad-victims bad-victims}))))
               ))
       (recur))
     (log "BACKGROUND: leaving event loop for client:" (get-sender client))
