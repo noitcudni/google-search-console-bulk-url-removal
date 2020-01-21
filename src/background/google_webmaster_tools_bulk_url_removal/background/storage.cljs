@@ -12,11 +12,13 @@
 ;; (remove this keys)
 ;; (clear this)
 
+(def ^:dynamic *DONE-FLAG* "**D0N3-FL@G**")
+
 (defn store-victims!
   "status: pending, removed, removing, error"
   [{:keys [global-removal-method data]}]
   (let [local-storage (storage/get-local)
-        data (concat data '(("poison-pill" "done-flag")))]
+        data (concat data [["poison-pill" *DONE-FLAG*]])]
     (go-loop [[[url optional-removal-method :as curr] & more] data
               idx 0]
       (if (nil? curr)
@@ -69,8 +71,7 @@
         (->> items
              js->clj
              (filter (fn [[k v]]
-                       (= "removing" (get v "status"))
-                       ))
+                       (= "removing" (get v "status"))))
              first)
         ))
     ))
@@ -83,10 +84,10 @@
       (let [[[items] error] (<! (storage-area/get local-storage))
             [victim-url victim-entry] (->> (or items '())
                                            js->clj
-                                           (sort-by (fn [[_ v]] (get v "idx")))
                                            (filter (fn [[k v]]
                                                      (let [status (get v "status")]
                                                        (= "pending" status))))
+                                           (sort-by (fn [[_ v]] (get v "idx")))
                                            first)
             _ (when-not (nil? victim-entry) (<! (update-storage victim-url "status" "removing")))
             victim (<! (current-removal-attempt))]
@@ -119,3 +120,17 @@
            (prn (js->clj items))
         ))
     ))
+
+(defn get-bad-victims []
+  (let [local-storage (storage/get-local)
+        ch (chan)]
+    (go
+      (let [[[items] error] (<! (storage-area/get local-storage))]
+        (>! ch (->> (or items '())
+                    js->clj
+                    (filter (fn [[k v]]
+                              (let [status (get v "status")]
+                                (= "error" status))))
+                    (sort-by (fn [[_ v]] (get v "idx")))
+                    ))))
+    ch))

@@ -11,7 +11,7 @@
             [chromex.ext.windows :as cwin :refer-macros [create]]
             [cognitect.transit :as t]
             [chromex.ext.browser-action :refer-macros [set-badge-text set-badge-background-color]]
-            [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! store-victims! update-storage next-victim]]
+            [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! store-victims! update-storage next-victim *DONE-FLAG* get-bad-victims]]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             ))
 
@@ -79,7 +79,7 @@
                                         (let [[victim-url victim-entry] (<! (next-victim))
                                               _ (prn "BACKGROUND: victim-url: " victim-url)
                                               _ (prn "BACKGROUND: victim-entry: " victim-entry)]
-                                          (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") "done-flag"))
+                                          (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") *DONE-FLAG*))
                                                 (prn "DONE!!!")
 
                                                 (and victim-url victim-entry)
@@ -88,21 +88,7 @@
                                                                                  :victim victim-url
                                                                                  :removal-method (get victim-entry "removal-method")
                                                                                  })))
-                                          )
-                                        #_(let [all-done? (<! (done?))
-                                              _ (prn "all-done?: " all-done?)]
-                                          (if all-done?
-                                            (prn "DONE!!!")
-                                            (let [[victim-url victim-entry] (<! (next-victim))
-                                                  _ (prn "BACKGROUND: victim-url: " victim-url)
-                                                  _ (prn "BACKGROUND: victim-entry: " victim-entry)]
-                                              (if (and victim-url victim-entry)
-                                                (post-message! client
-                                                               (common/marshall {:type :remove-url
-                                                                                 :victim victim-url
-                                                                                 :removal-method (get victim-entry "removal-method")
-                                                                                 })))
-                                              )))
+                                         )
                                         ))
               (= type :skip-error) (do
                                      (prn "inside :skip-error:" whole-edn)
@@ -110,22 +96,31 @@
                                      ;; No, in removals.cljs, after firing off :skip-error message,
                                      ;; it clicks on cancel right away. This brings the page back to the
                                      ;; main page, which triggers another :next-victim event.
-                                     (let [{:keys [url reason]} whole-edn
-                                           error-entry {:url url :reason reason}
-                                           popup-client (get-popup-client)]
-                                       (swap! bad-victims conj error-entry) ;; TODO: do we even need this?
-                                       (update-storage url
-                                                       "status" "error"
-                                                       "error-reason" reason)
+                                     (go
+                                       (let [{:keys [url reason]} whole-edn
+                                             error-entry {:url url :reason reason}
+                                             popup-client (get-popup-client)]
+                                         ;; (swap! bad-victims conj error-entry) ;; TODO: do we even need this?
+                                         (prn "here0")
+                                         (<! (update-storage url
+                                                             "status" "error"
+                                                             "error-reason" reason))
+                                         (let [error-cnt (->> (<! (get-bad-victims))
+                                                              count
+                                                              str)
+                                               _ (prn "error-cnt: " error-cnt)]
+                                           (set-badge-text (clj->js {"text" error-cnt}))
+                                           )
 
-                                       (set-badge-text #js{"text" (->> @bad-victims count str)})
-                                       (set-badge-background-color #js{"color" "#F00"})
-                                       (when popup-client
-                                         (prn "sending popup-client " (common/marshall {:type :new-error
-                                                                                        :error error-entry}))
-                                         (post-message! popup-client (common/marshall {:type :new-error
-                                                                                       :error error-entry})))
-                                       ))
+                                         (prn "here2?")
+                                         ;; (set-badge-text #js{"text" (->> @bad-victims count str)})
+                                         (set-badge-background-color #js{"color" "#F00"})
+                                         ;; (when popup-client
+                                         ;;   (prn "sending popup-client " (common/marshall {:type :new-error
+                                         ;;                                                  :error error-entry}))
+                                         ;;   (post-message! popup-client (common/marshall {:type :new-error
+                                         ;;                                                 :error error-entry})))
+                                         )))
 
               (= type :fetch-initial-errors) (do
                                                (prn "inside :fetch-initial-errors: ")

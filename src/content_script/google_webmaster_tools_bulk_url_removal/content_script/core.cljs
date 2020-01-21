@@ -10,7 +10,7 @@
             [chromex.ext.runtime :as runtime :refer-macros [connect]]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! print-victims update-storage
-                                                                                current-removal-attempt done?]]
+                                                                                current-removal-attempt get-bad-victims]]
             [cljs-time.core :as t]
             [cljs-time.coerce :as tc]
             [cemerick.url :refer [url]]
@@ -75,7 +75,10 @@
                                                             (log "print db btn clicked!")
                                                             (print-victims)
                                                             (go
-                                                              (prn (<! (done?))))
+                                                              (let [_ (prn "did we get here?")
+                                                                    bad-victims (<! (get-bad-victims))]
+                                                                (prn "bad-victims: "  bad-victims)
+                                                                ))
                                                             )
 
                                                 }
