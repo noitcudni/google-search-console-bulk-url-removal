@@ -1,5 +1,6 @@
 (ns google-webmaster-tools-bulk-url-removal.popup.core
-  (:require-macros [cljs.core.async.macros :refer [go-loop]])
+  (:require-macros [cljs.core.async.macros :refer [go-loop]]
+                   [reagent.ratom :refer [reaction]])
   (:require [cljs.core.async :refer [<!]]
             [chromex.logging :refer-macros [log info warn error group group-end]]
             [chromex.protocols.chrome-port :refer [post-message!]]
@@ -8,19 +9,22 @@
             [re-com.core :as recom]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             [reagent.core :as reagent :refer [atom]]
+            [google-webmaster-tools-bulk-url-removal.background.storage :refer [get-bad-victims]]
             ))
 
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
+(def cached-bad-victims-atom (atom nil))
 
 (defn process-message! [message]
-  (let [{:keys [type] :as whole-edn} (common/unmarshall message)
-        _ (prn "message: " (common/unmarshall message))
-        ]
+  (let [{:keys [type] :as whole-edn} (common/unmarshall message)]
     ;; TODO display errors in popup
-    (cond (= type :init-errors) (do (prn "cond: " whole-edn))
-          (= type :new-error) (do "cond: " (prn whole-edn))
-          )
-    ))
+    (cond (= type :init-errors) (do
+                                  (prn "init-errors: " whole-edn)
+                                  (reset! cached-bad-victims-atom (-> whole-edn :bad-victims vec)))
+          (= type :new-error) (do "cond: "
+                                  (prn "new-error: " whole-edn)
+                                  (swap! cached-bad-victims-atom conj (:error whole-edn)))
+          )))
 
 (defn run-message-loop! [message-channel]
   (log "POPUP: starting message loop...")
@@ -48,15 +52,16 @@
                                             :conflictAction "overwrite"
                                             }))
 
-                        ))]
+                        ))
+        cnt-atom (reaction (count @cached-bad-victims-atom))]
     (fn []
       [recom/v-box
        :width "360px"
        :align :center
        :children [
                   [recom/h-box
-                   :children [[recom/title :label "Error Count:" :level :level1]
-                              [recom/title :label "4" :level :level1]]]
+                   :children [[recom/title :label "Error Count: " :level :level1]
+                              [recom/title :label (str @cnt-atom) :level :level1]]]
                   ;; [recom/h-box
                   ;;  :children [[:h1 "Removed Count: "] [:h1 "5"]]]
                   [recom/button

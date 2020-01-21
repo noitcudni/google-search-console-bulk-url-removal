@@ -38,12 +38,6 @@
 
 (defn get-popup-client []
   (->> @clients
-       ;; (map (fn [c]
-       ;;        (-> c
-       ;;            get-sender
-       ;;            js->clj)
-       ;;        ))
-       ;; (map #(get % "url"))
        (filter (fn [c] (re-find #"popup.html" (-> c
                                                   get-sender
                                                   js->clj
@@ -95,23 +89,23 @@
                                      (go
                                        (let [{:keys [url reason]} whole-edn
                                              error-entry {:url url :reason reason}
-                                             popup-client (get-popup-client)]
-                                         (<! (update-storage url
-                                                             "status" "error"
-                                                             "error-reason" reason))
-                                         (let [error-cnt (->> (<! (get-bad-victims))
-                                                              count
-                                                              str)
-                                               _ (prn "error-cnt: " error-cnt)]
-                                           (set-badge-text (clj->js {"text" error-cnt}))
-                                           )
-
+                                             popup-client (get-popup-client)
+                                             updated-error-entry (<! (update-storage url
+                                                                                     "status" "error"
+                                                                                     "error-reason" reason))
+                                             error-cnt (->> (<! (get-bad-victims))
+                                                            count
+                                                            str)
+                                             _ (prn "updated-error-entry: " updated-error-entry) ;;xxx
+                                             _ (prn "error-cnt: " error-cnt) ;;xxx
+                                             ]
+                                         (set-badge-text (clj->js {"text" error-cnt}))
                                          (set-badge-background-color #js{"color" "#F00"})
-                                         ;; (when popup-client
-                                         ;;   (prn "sending popup-client " (common/marshall {:type :new-error
-                                         ;;                                                  :error error-entry}))
-                                         ;;   (post-message! popup-client (common/marshall {:type :new-error
-                                         ;;                                                 :error error-entry})))
+                                         (when popup-client
+                                           (prn "sending popup-client " (common/marshall
+                                                                         {:type :new-error :error updated-error-entry}))
+                                           (post-message! popup-client (common/marshall
+                                                                        {:type :new-error :error updated-error-entry})))
                                          )))
 
               (= type :fetch-initial-errors) (go

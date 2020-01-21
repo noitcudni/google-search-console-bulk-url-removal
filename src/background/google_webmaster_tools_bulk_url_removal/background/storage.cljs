@@ -45,18 +45,22 @@
 (defn update-storage [url & args]
   {:pre [(even? (count args))]}
   (let [kv-pairs (partition 2 args)
-        local-storage (storage/get-local)]
+        local-storage (storage/get-local)
+        ch (chan)]
     (go
       (let [[[items] error] (<! (storage-area/get local-storage url))]
         (if error
           (error (str "fetching " url ":") error)
-          (let [entry (->> (js->clj items) vals first)]
-            (storage-area/set local-storage (clj->js {url (->> kv-pairs
-                                                               (reduce (fn [accum [k v]]
-                                                                         (assoc accum k v))
-                                                                       entry))
-                                                      }))))))
-    ))
+          (let [entry (->> (js->clj items) vals first)
+                r {url (->> kv-pairs
+                            (reduce (fn [accum [k v]]
+                                      (assoc accum k v))
+                                    entry))
+                   }]
+            (storage-area/set local-storage (clj->js r))
+            (>! ch r)
+            ))))
+    ch))
 
 
 (defn current-removal-attempt
