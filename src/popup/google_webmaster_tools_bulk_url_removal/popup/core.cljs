@@ -64,12 +64,16 @@
       [recom/v-box
        :width "360px"
        :align :center
-       :children [
+       :children [[recom/v-box
+                   :align :start
+                   :style {:padding "10px"}
+                   :children [[recom/title :label "Instructions:" :level :level1]
+                              [recom/label :label "Go to your Google Search Account"]
+                              [recom/label :label "Click on 'Legacy Tools and Reports > Removals'"]
+                              [recom/label :label "Upload your csv file by clicking on the 'Choose file' button"]]]
                   [recom/h-box
                    :children [[recom/title :label "Error Count: " :level :level1]
                               [recom/title :label (str @cnt-atom) :level :level1]]]
-                  ;; [recom/h-box
-                  ;;  :children [[:h1 "Removed Count: "] [:h1 "5"]]]
                   [recom/button
                    :label "Download CSV"
                    :style {:color            "white"
