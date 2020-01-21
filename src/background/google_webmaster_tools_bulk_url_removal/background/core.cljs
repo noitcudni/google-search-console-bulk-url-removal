@@ -70,7 +70,9 @@
                                               _ (prn "BACKGROUND: victim-url: " victim-url)
                                               _ (prn "BACKGROUND: victim-entry: " victim-entry)]
                                           (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") *DONE-FLAG*))
-                                                (prn "DONE!!!")
+                                                (do (prn "DONE!!!")
+                                                    (post-message! client
+                                                                   (common/marshall {:type :done})))
 
                                                 (and victim-url victim-entry)
                                                 (post-message! client

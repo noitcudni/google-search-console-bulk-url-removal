@@ -15,16 +15,23 @@
 
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
 (def cached-bad-victims-atom (atom nil))
+(def disable-error-download-ratom? (reagent/atom true))
+
+(defn update-download-btn-ratom []
+  (when (> (count @cached-bad-victims-atom) 0)
+    (reset! disable-error-download-ratom? false)))
 
 (defn process-message! [message]
   (let [{:keys [type] :as whole-edn} (common/unmarshall message)]
     ;; TODO display errors in popup
-    (cond (= type :init-errors) (do
-                                  (prn "init-errors: " whole-edn)
-                                  (reset! cached-bad-victims-atom (-> whole-edn :bad-victims vec)))
-          (= type :new-error) (do "cond: "
-                                  (prn "new-error: " whole-edn)
-                                  (swap! cached-bad-victims-atom conj (:error whole-edn)))
+    (cond (= type :init-errors) (do (prn "init-errors: " whole-edn)
+                                    (reset! cached-bad-victims-atom (-> whole-edn :bad-victims vec))
+                                    (update-download-btn-ratom))
+          (= type :new-error) (do (prn "new-error: " whole-edn)
+                                  (swap! cached-bad-victims-atom conj (:error whole-edn))
+                                  (update-download-btn-ratom))
+          (= type :done) (do (prn "done: " whole-edn)
+                             (update-download-btn-ratom))
           )))
 
 (defn run-message-loop! [message-channel]
@@ -59,7 +66,7 @@
                                             }))
 
                         ))
-        cnt-atom (reaction (count @cached-bad-victims-atom))]
+        cnt-ratom (reaction (count @cached-bad-victims-atom))]
     (fn []
       [recom/v-box
        :width "360px"
@@ -73,9 +80,10 @@
                               [recom/label :label "Upload your csv file by clicking on the 'Choose file' button"]]]
                   [recom/h-box
                    :children [[recom/title :label "Error Count: " :level :level1]
-                              [recom/title :label (str @cnt-atom) :level :level1]]]
+                              [recom/title :label (str @cnt-ratom) :level :level1]]]
                   [recom/button
-                   :label "Download CSV"
+                   :label "Download Error CSV"
+                   :disabled? @disable-error-download-ratom?
                    :style {:color            "white"
                            :background-color  "#d9534f" #_(if @hover? "#0072bb" "#4d90fe")
                            :font-size        "22px"
