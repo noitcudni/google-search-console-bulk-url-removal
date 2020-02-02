@@ -1,4 +1,4 @@
-((common/connect-to-background-page! background-port process-message!)ns google-webmaster-tools-bulk-url-removal.background.core
+(ns google-webmaster-tools-bulk-url-removal.background.core
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [goog.string :as gstring]
             [goog.string.format]
@@ -79,6 +79,7 @@
                                                                (common/marshall {:type :remove-url
                                                                                  :victim victim-url
                                                                                  :removal-method (get victim-entry "removal-method")
+                                                                                 :url-type (get victim-entry "url-type")
                                                                                  })))
                                          )
                                         ))
