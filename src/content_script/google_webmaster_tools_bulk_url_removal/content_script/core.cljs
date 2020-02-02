@@ -56,15 +56,6 @@
                                     [:input {:id "fileInput" :type "file"
                                              :on-change (fn [e] (put! upload-chan e))
                                              }]])
-        drop-down-el (hipo/create [:div
-                                   [:select {:id "global-removal-method"}
-                                    [:option {:value "PAGE"}
-                                     "Remove page from search results and cache"]
-                                    [:option {:value "PAGE_CACHE"}
-                                     "Remove page from cache only"]
-                                    [:option {:value "DIRECTORY"}
-                                     "Remove Directory"]]])
-
         clear-db-btn-el (hipo/create [:div
                                       [:button {:type "button"
                                                 :on-click (fn [_]
@@ -88,16 +79,13 @@
                                        "View local storage"
                                        ]])
         br-el (hipo/create [:br])
+        target-el (single-node (xpath "//div[contains(text(), 'Need to urgently remove content from Google Search?')]"))
         ]
-    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
-    (dommy/append! (sel1 :#create-removal_button) file-input-el)
-    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
-    (dommy/append! (sel1 :#create-removal_button) drop-down-el)
-    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
-    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
-    (dommy/append! (sel1 :#create-removal_button) clear-db-btn-el)
-    (dommy/append! (sel1 :#create-removal_button) (hipo/create [:br]))
-    (dommy/append! (sel1 :#create-removal_button) print-db-btn-el)
+
+    ;; TODO style these buttons later
+    (dommy/append! target-el file-input-el)
+    (dommy/append! target-el clear-db-btn-el)
+    (dommy/append! target-el print-db-btn-el)
     ))
 
 (defn setup-continue-ui [background-port]
@@ -175,10 +163,10 @@
 
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
-  "method: :remove-url vs :clear-cached
-  removal-type: :url-only vs :prefix"
-  [url method removal-type]
-  (let [removal-type-str (if (= removal-type :prefix)
+  "url-method: :remove-url vs :clear-cached
+  url-type: :url-only vs :prefix"
+  [url url-method url-type]
+  (let [url-type-str (if (= url-type :prefix)
                            "Remove all URLs with this prefix"
                            "Remove this URL only")]
 
@@ -186,7 +174,7 @@
 
        (<! (async/timeout 700)) ;; wait for the modal dialog to show
        ;; Who cares? Click on all the radiobuttons
-       (doseq [n (nodes (xpath (str "//label[contains(text(), '" removal-type-str "')]/div")))]
+       (doseq [n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))]
          (.click n))
 
        (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
@@ -195,9 +183,8 @@
            (domina/set-value! n url)))
 
        ;; NOTE: Need to click one of the tabs to get next to show
-       (if (= method :removal-url)
+       (if (= url-method :removal-url)
          (do
-           ;; (prn "selected removal-url: " method)
            (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
            (<! (async/timeout 700))
            (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]"))))
@@ -216,7 +203,8 @@
 
 (defn init! []
   (let [_ (log "CONTENT SCRIPT: init")
-        background-port (runtime/connect)]
+        background-port (runtime/connect)
+        _ (prn "background-port: " background-port)]
 
     ;; handle onload
     (go-loop []
@@ -229,7 +217,7 @@
     ;; handle read the file
     (go-loop []
       (let [file-content (<! read-chan)
-            _ (prn (clojure.string/trim file-content))
+            _ (prn "file-content: " (clojure.string/trim file-content))
             csv-data (->> (csv/read-csv (clojure.string/trim file-content))
                           ;; trim off random whitespaces
                           (map (fn [[url method]]
@@ -237,51 +225,21 @@
                                        (when method (clojure.string/trim method))]
                                       (filter (complement nil?))
                                       ))))]
+        (prn "about to call :init-victims")
         (post-message! background-port (common/marshall {:type :init-victims
-                                                         :global-removal-method (dommy/value (sel1 :#global-removal-method))
                                                          :data csv-data
                                                          }))
         (recur)))
 
     ;;;; new version
-    (exec-new-removal-request "https://polymorphiclabs.io/en-us/blah/blah/" :clear-cached :prefix)
+    (go
+      (ensure-english-setting)
+      (setup-ui background-port)
+      (common/connect-to-background-page! background-port process-message!)
 
-    #_(go (prn "new version starts here...")
-        (prn (xpath "//span[contains(text(), 'New Request')]"))
-        (prn (single-node (xpath "//span[contains(text(), 'New Request')]")))
+      )
 
-        ;; Works!!
-        (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
-        ;; (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL'")))
-        ;; (prn "about to click on Clear cached URL")
-        ;; TODO work on a wait until macro instead of relying on async/timeout
-        ;; returns nil
-        ;; (prn "no wait!! clear cached url tab: " (single-node (xpath "//span[contains(text(), 'Clear cached URL')]"))) ;;xxx
-
-        (<! (async/timeout 1000))
-        ;; (prn "remove prefix label: " (single-node (xpath "//label[contains(text(), 'Remove all URLs with this prefix')]//div")))
-        ;; Who cares? Click on all the radiobuttons
-        (doseq [n (nodes (xpath "//label[contains(text(), 'Remove all URLs with this prefix')]/div"))]
-          (.click n))
-
-        ;; TODO need to figure out Enter URL into the textbox
-        (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
-          (do
-            (.click n)
-            (domina/set-value! n "https://polymorphiclabs.io/en-us/blah/blah/")))
-
-        ;; NOTE: Need to click one of the tabs to get next to show
-        (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
-        (<! (async/timeout 500))
-        (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]")))
-
-        (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
-        (<! (async/timeout 600))
-        (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
-
-
-        )
-
+    ;(exec-new-removal-request "https://polymorphiclabs.io/en-us/blah/blah/" :clear-cached :prefix)
     ;; function my_click(el) {
     ;;                        var evt=document.createEvent("MouseEvent");
     ;;                        evt.initMouseEvent("click", true, true, window, 1, 0, 0, 0, 0, undefined, undefined, undefined, undefined, 0, null);

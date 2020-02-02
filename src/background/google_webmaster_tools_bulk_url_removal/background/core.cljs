@@ -1,4 +1,4 @@
-(ns google-webmaster-tools-bulk-url-removal.background.core
+((common/connect-to-background-page! background-port process-message!)ns google-webmaster-tools-bulk-url-removal.background.core
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [goog.string :as gstring]
             [goog.string.format]

@@ -15,31 +15,40 @@
 (def ^:dynamic *DONE-FLAG* "**D0N3-FL@G**")
 
 (defn store-victims!
-  "status: pending, removed, removing, error"
-  [{:keys [global-removal-method data]}]
+  "status: pending, removed, removing, error
+  CSV format : url, removal-method, url-type
+
+  removal-method: 'remove-url' vs 'clear-cached'
+  url-type: 'url-only' vs 'prefix'
+  "
+  [{:keys [data]}]
   (let [local-storage (storage/get-local)
         data (concat data [["poison-pill" *DONE-FLAG*]])]
-    (go-loop [[[url optional-removal-method :as curr] & more] data
+    (go-loop [[[url optional-removal-method optional-url-type :as curr] & more] data
               idx 0]
-      (if (nil? curr)
-        (log "DONE storing victims")
-        (let [removal-method (cond (contains? #{"PAGE", "PAGE_CACHE", "DIRECTORY"} optional-removal-method) optional-removal-method
-                                   (empty? optional-removal-method) global-removal-method
-                                   ;; Pass along the erroneous removal-method. It will be handled later
-                                   :else optional-removal-method
-                                   )
-              [[items] error] (<! (storage-area/get local-storage url))]
-          (if error
-            (error (str "fetching " url ":") error)
-            (do (log "setting url: " url " | method: " removal-method)
-                (storage-area/set local-storage (clj->js {url {"submit-ts" (tc/to-long (t/now))
-                                                               "remove-ts" nil
-                                                               "removal-method" removal-method
-                                                               "status" "pending"
-                                                               "idx" idx}
-                                                          }))))
-          (recur more (inc idx)))
-        ))
+      (let [optional-removal-method (or (if (empty? optional-removal-method) nil optional-removal-method) "removal-url")
+            optional-url-type (or (if (empty? optional-url-type) nil optional-url-type) "url-only")]
+       (if (nil? curr)
+         (log "DONE storing victims")
+         (let [removal-method (cond (contains? #{"removal-url", "clear-cached"} optional-removal-method) optional-removal-method
+                                    ;; Pass along the erroneous removal-method. It will be handled later
+                                    :else optional-removal-method)
+               url-type (cond (contains? #{"url-only", "prefix"} optional-url-type) optional-url-type
+                              ;; Pass along the erroneous url-type. It will be handled later
+                              :else optional-url-type)
+               [[items] error] (<! (storage-area/get local-storage url))]
+           (if error
+             (error (str "fetching " url ":") error)
+             (do (log "setting url: " url " | method: " removal-method)
+                 (storage-area/set local-storage (clj->js {url {"submit-ts" (tc/to-long (t/now))
+                                                                "remove-ts" nil
+                                                                "removal-method" removal-method
+                                                                "url-type" url-type
+                                                                "status" "pending"
+                                                                "idx" idx}
+                                                           }))))
+           (recur more (inc idx)))
+         )))
     ))
 
 (defn update-storage [url & args]
