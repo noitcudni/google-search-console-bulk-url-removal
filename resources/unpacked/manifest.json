@@ -19,7 +19,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.google.com/webmasters/tools/url-removal*"
+        "https://search.google.com/u/1/search-console/removals*"
       ],
       "js": [
         "compiled/content-script/main.js"
@@ -45,7 +45,7 @@
     "storage",
     "downloads",
     "unlimitedStorage",
-    "https://www.google.com/webmasters/*"
+    "https://search.google.com/u/1/search-console/removals*"
   ],
   "manifest_version": 2
 }

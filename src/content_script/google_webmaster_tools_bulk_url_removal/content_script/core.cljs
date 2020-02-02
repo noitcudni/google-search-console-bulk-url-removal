@@ -14,6 +14,9 @@
             [cljs-time.core :as t]
             [cljs-time.coerce :as tc]
             [cemerick.url :refer [url]]
+            [domina :refer [single-node nodes]]
+            [domina.xpath :refer [xpath]]
+            [domina.events :refer [dispatch!]]
             ))
 
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
@@ -157,6 +160,58 @@
                               )))
         ))))
 
+;; has to be used inside a go block
+#_(defmacro with-wait [[action [_ [_ p] :as single-node-sexp] ]]
+  `(let [path# ~p]
+     (loop [n# (~'single-node (~'xpath path#))]
+       (if (nil? n#)
+         (do
+           (<! (cljs.core.async/timeout 100))
+           (recur (~'single-node (~'xpath path#))))
+         (do
+           (~'prn "n#: ")
+           (.click n#))
+         ))))
+
+;; default to Temporarily remove and Remove this URL only
+(defn exec-new-removal-request
+  "method: :remove-url vs :clear-cached
+  removal-type: :url-only vs :prefix"
+  [url method removal-type]
+  (let [removal-type-str (if (= removal-type :prefix)
+                           "Remove all URLs with this prefix"
+                           "Remove this URL only")]
+
+   (go (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
+
+       (<! (async/timeout 700)) ;; wait for the modal dialog to show
+       ;; Who cares? Click on all the radiobuttons
+       (doseq [n (nodes (xpath (str "//label[contains(text(), '" removal-type-str "')]/div")))]
+         (.click n))
+
+       (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
+         (do
+           (.click n)
+           (domina/set-value! n url)))
+
+       ;; NOTE: Need to click one of the tabs to get next to show
+       (if (= method :removal-url)
+         (do
+           ;; (prn "selected removal-url: " method)
+           (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
+           (<! (async/timeout 700))
+           (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]"))))
+
+         (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]"))))
+
+
+       (<! (async/timeout 700))
+       (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
+       (<! (async/timeout 700))
+       (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
+       )))
+
+
 ; -- main entry point -------------------------------------------------------------------------------------------------------
 
 (defn init! []
@@ -188,10 +243,63 @@
                                                          }))
         (recur)))
 
+    ;;;; new version
+    (exec-new-removal-request "https://polymorphiclabs.io/en-us/blah/blah/" :clear-cached :prefix)
+
+    #_(go (prn "new version starts here...")
+        (prn (xpath "//span[contains(text(), 'New Request')]"))
+        (prn (single-node (xpath "//span[contains(text(), 'New Request')]")))
+
+        ;; Works!!
+        (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
+        ;; (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL'")))
+        ;; (prn "about to click on Clear cached URL")
+        ;; TODO work on a wait until macro instead of relying on async/timeout
+        ;; returns nil
+        ;; (prn "no wait!! clear cached url tab: " (single-node (xpath "//span[contains(text(), 'Clear cached URL')]"))) ;;xxx
+
+        (<! (async/timeout 1000))
+        ;; (prn "remove prefix label: " (single-node (xpath "//label[contains(text(), 'Remove all URLs with this prefix')]//div")))
+        ;; Who cares? Click on all the radiobuttons
+        (doseq [n (nodes (xpath "//label[contains(text(), 'Remove all URLs with this prefix')]/div"))]
+          (.click n))
+
+        ;; TODO need to figure out Enter URL into the textbox
+        (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
+          (do
+            (.click n)
+            (domina/set-value! n "https://polymorphiclabs.io/en-us/blah/blah/")))
+
+        ;; NOTE: Need to click one of the tabs to get next to show
+        (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
+        (<! (async/timeout 500))
+        (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]")))
+
+        (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
+        (<! (async/timeout 600))
+        (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
+
+
+        )
+
+    ;; function my_click(el) {
+    ;;                        var evt=document.createEvent("MouseEvent");
+    ;;                        evt.initMouseEvent("click", true, true, window, 1, 0, 0, 0, 0, undefined, undefined, undefined, undefined, 0, null);
+    ;;                        el.dispatchEvent(evt);
+    ;;                        }
+
+
+    ;; (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL'")))
+
+
+    ;; "Temporarily remove URL"  ;;Tab
+    ;; "Clear cached URL" ;;Tab
+
+    ;;;;; old version
     ;; Ask for the next victim if there's no failure.
     ;; If current-removal-attempt returns nil, that means
     ;; that there's no outstanding failure.
-    (go
+    #_(go
       (<! (async/timeout 1500)) ;; wait a bit for the ui to update
       (<! (update-removal-status))
       (<! (skip-has-already-been-removed-request))
