@@ -19,16 +19,54 @@
             [domina.events :refer [dispatch!]]
             ))
 
-; -- a message loop ---------------------------------------------------------------------------------------------------------
+;; default to Temporarily remove and Remove this URL only
+(defn exec-new-removal-request
+  "url-method: :remove-url vs :clear-cached
+  url-type: :url-only vs :prefix"
+  [url url-method url-type]
+  (let [url-type-str (if (= url-type :prefix)
+                           "Remove all URLs with this prefix"
+                           "Remove this URL only")]
 
+   (go (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
+
+       (<! (async/timeout 700)) ;; wait for the modal dialog to show
+       ;; Who cares? Click on all the radiobuttons
+       (doseq [n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))]
+         (.click n))
+
+       (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
+         (do
+           (.click n)
+           (domina/set-value! n url)))
+
+       ;; NOTE: Need to click one of the tabs to get next to show
+       (if (= url-method :removal-url)
+         (do
+           (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
+           (<! (async/timeout 700))
+           (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]"))))
+
+         (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]"))))
+
+
+       (<! (async/timeout 700))
+       (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
+       (<! (async/timeout 700))
+       (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
+       )))
+
+; -- a message loop ---------------------------------------------------------------------------------------------------------
 (defn process-message! [chan message]
   (let [{:keys [type] :as whole-msg} (common/unmarshall message)]
     (prn "CONTENT SCRIPT: process-message!: " whole-msg)
     (cond (= type :done-init-victims) (post-message! chan (common/marshall {:type :next-victim}))
           (= type :remove-url) (do (prn "handling :remove-url")
-                                   (dommy/set-value! (sel1 "input[name=\"urlt\"]") (:victim whole-msg))
-                                   (.click (sel1 "input[name=\"urlt.submitButton\"]"))
-                                   )
+                                   ;; TODO: updte the status
+                                   ;; TODO: the ui disappear after
+                                   (let [{:keys [victim removal-method url-type]} whole-msg]
+                                     (exec-new-removal-request victim removal-method url-type)
+                                     ))
           )
     ))
 
@@ -160,43 +198,6 @@
            (~'prn "n#: ")
            (.click n#))
          ))))
-
-;; default to Temporarily remove and Remove this URL only
-(defn exec-new-removal-request
-  "url-method: :remove-url vs :clear-cached
-  url-type: :url-only vs :prefix"
-  [url url-method url-type]
-  (let [url-type-str (if (= url-type :prefix)
-                           "Remove all URLs with this prefix"
-                           "Remove this URL only")]
-
-   (go (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
-
-       (<! (async/timeout 700)) ;; wait for the modal dialog to show
-       ;; Who cares? Click on all the radiobuttons
-       (doseq [n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))]
-         (.click n))
-
-       (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
-         (do
-           (.click n)
-           (domina/set-value! n url)))
-
-       ;; NOTE: Need to click one of the tabs to get next to show
-       (if (= url-method :removal-url)
-         (do
-           (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
-           (<! (async/timeout 700))
-           (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]"))))
-
-         (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]"))))
-
-
-       (<! (async/timeout 700))
-       (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
-       (<! (async/timeout 700))
-       (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
-       )))
 
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
