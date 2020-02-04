@@ -16,9 +16,9 @@ https://chrome.google.com/webstore/detail/webmaster-tools-bulk-url/pmnpibilljafe
 
 ## Usage
 1. Create a list of urls to be removed and store them in a file. All urls are separated by \n. See [How to Extract a List of All URLs Indexed by Google for Your Website](https://cognitiveseo.com/blog/5714/69-amazing-seo-bookmarklets-to-supercharge-your-internet-marketing/#1-2) for an easy way to get all links from a website from Google Search results.
-2. Go to Google's webmaster tools.
+2. ~~Go to Google's webmaster tools.~~\s\s **ATTENTION:** the legacy removal tools will be sunsetted on Fed 27, 2020. I'm in the processing of porting over the extension to be compatible with the new one. In the meantime, go directly to the legacy removal tool via [https://www.google.com/webmasters/tools/url-removal](https://www.google.com/webmasters/tools/url-removal).
 3. Check to ensure that all URLs match the property you are updating, including the scheme (http vs https)
-4. Click on Google Index -> Remove URLs.
+4. ~~Click on Google Index -> Remove URLs.~~
 5. You should now see a new drop-down with several removal options, along with a "Choose File" button.
   * **NOTE**: the drop-down is a global option. You can specify a different removal option on a per URL basis to override the global option. Please refer to the **CSV Format section** below.
 6. Click on the Choose File button.
