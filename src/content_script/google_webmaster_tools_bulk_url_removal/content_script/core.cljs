@@ -19,6 +19,38 @@
             [domina.events :refer [dispatch!]]
             ))
 
+(defn most-recent-table-grid-entry []
+  (when-let [el (-> "//table/tbody/tr"
+                    xpath
+                    nodes
+                    last
+                    (xpath "td")
+                    nodes
+                    last
+                    )]
+    (-> el
+        dommy/text
+        clojure.string/trim
+        common/normalize-url-encoding
+        )
+    ))
+
+(defn update-removal-status
+  "Grab the most recent table entry and compare that against what we think the most recent url instead of
+  grabbing the url from the status message."
+  []
+  (go
+    (when-let [most-recent-url (most-recent-table-grid-entry)]
+      (prn "update-removal-status -> most-recent-url: " most-recent-url)
+      (when-let [[curr-removal-url _] (<! (current-removal-attempt))]
+        ;; TODO log it as an error
+        (when (= (common/fq-victim-url curr-removal-url) most-recent-url)
+          (<! (update-storage curr-removal-url
+                              "status" "removed"
+                              "remove-ts" (tc/to-long (t/now))
+                              )))
+        ))))
+
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
   "url-method: :remove-url vs :clear-cached
@@ -64,9 +96,11 @@
           (= type :remove-url) (do (prn "handling :remove-url")
                                    ;; TODO: updte the status
                                    ;; TODO: the ui disappear after
-                                   (let [{:keys [victim removal-method url-type]} whole-msg]
-                                     (exec-new-removal-request victim removal-method url-type)
-                                     ))
+                                   (go
+                                     (let [{:keys [victim removal-method url-type]} whole-msg]
+                                       (<! (exec-new-removal-request victim removal-method url-type))
+                                       (<! (update-removal-status))
+                                       )))
           )
     ))
 
@@ -137,15 +171,7 @@
     ))
 
 
-(defn most-recent-table-grid-entry []
-  (when-let [el (sel1 "tr.first")]
-    (-> el
-        dommy/text
-        clojure.string/trim
-        (clojure.string/split #"\n")
-        first
-        common/normalize-url-encoding
-        )))
+
 
 
 (defn skip-has-already-been-removed-request
@@ -171,20 +197,7 @@
       "DO Nothing" ;; can't put nil on a channel
       )))
 
-(defn update-removal-status
-  "Grab the most recent table entry and compare that against what we think the most recent url instead of
-  grabbing the url from the status message."
-  []
-  (go
-    (when-let [most-recent-url (most-recent-table-grid-entry)]
-      (prn "update-removal-status -> most-recent-url: " most-recent-url)
-      (when-let [[curr-removal-url _] (<! (current-removal-attempt))]
-        (when (= (common/fq-victim-url curr-removal-url) most-recent-url)
-          (<! (update-storage curr-removal-url
-                              "status" "removed"
-                              "remove-ts" (tc/to-long (t/now))
-                              )))
-        ))))
+
 
 ;; has to be used inside a go block
 #_(defmacro with-wait [[action [_ [_ p] :as single-node-sexp] ]]
