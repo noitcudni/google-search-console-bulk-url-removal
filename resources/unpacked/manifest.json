@@ -41,11 +41,9 @@
     "persistent": false
   },
   "permissions": [
-    "tabs",
     "storage",
     "downloads",
-    "unlimitedStorage",
-    "https://www.google.com/webmasters/*"
+    "unlimitedStorage"
   ],
   "manifest_version": 2
 }
