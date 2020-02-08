@@ -88,24 +88,6 @@
        (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
        )))
 
-; -- a message loop ---------------------------------------------------------------------------------------------------------
-(defn process-message! [chan message]
-  (let [{:keys [type] :as whole-msg} (common/unmarshall message)]
-    (prn "CONTENT SCRIPT: process-message!: " whole-msg)
-    (cond (= type :done-init-victims) (post-message! chan (common/marshall {:type :next-victim}))
-          (= type :remove-url) (do (prn "handling :remove-url")
-                                   ;; TODO: updte the status
-                                   ;; TODO: the ui disappear after
-                                   (go
-                                     (let [{:keys [victim removal-method url-type]} whole-msg]
-                                       (<! (exec-new-removal-request victim removal-method url-type))
-                                       (<! (update-removal-status))
-                                       )))
-          )
-    ))
-
-
-; -- custom ui components  ------------------------------------------------------------------------------------------------
 (def upload-chan (chan 1 (map (fn [e]
                                 (let [target (.-currentTarget e)
                                       file (-> target .-files (aget 0))]
@@ -113,19 +95,9 @@
                                   file
                                   )))))
 
-(def read-chan (chan 1 (map #(-> % .-target .-result js->clj))))
-
-
-(defn ensure-english-setting []
-  (let [url-parts (url (.. js/window -location -href))]
-    (when-not (= "en" (get-in url-parts [:query "hl"]))
-      (js/alert "Bulk URL Removal extension works properly only in English. Press OK to set the language to English.")
-      (set! (.. js/window -location -href) (str (assoc-in url-parts [:query "hl"] "en")))
-      )))
-
 (defn setup-ui [background-port]
   (let [file-input-el (hipo/create [:div
-                                    [:input {:id "fileInput" :type "file"
+                                    [:input {:id "bulkCsvFileInput" :type "file"
                                              :on-change (fn [e] (put! upload-chan e))
                                              }]])
         clear-db-btn-el (hipo/create [:div
@@ -159,6 +131,42 @@
     (dommy/append! target-el clear-db-btn-el)
     (dommy/append! target-el print-db-btn-el)
     ))
+
+; -- a message loop ---------------------------------------------------------------------------------------------------------
+(defn process-message! [chan message]
+  (let [{:keys [type] :as whole-msg} (common/unmarshall message)]
+    (prn "CONTENT SCRIPT: process-message!: " whole-msg)
+    (cond (= type :done-init-victims) (post-message! chan (common/marshall {:type :next-victim}))
+          (= type :remove-url) (do (prn "handling :remove-url")
+                                   ;; TODO: updte the status
+                                   ;; TODO: the ui disappear after
+                                   (go
+                                     (let [{:keys [victim removal-method url-type]} whole-msg]
+                                       (<! (exec-new-removal-request victim removal-method url-type))
+                                       (<! (cljs.core.async/timeout 1400))
+                                       (<! (update-removal-status))
+                                       (when-not (single-node (xpath "//input[@id='bulkCsvFileInput']"))
+                                         (setup-ui chan))
+                                       (post-message! chan (common/marshall {:type :next-victim}))
+                                       )))
+          )
+    ))
+
+
+; -- custom ui components  ------------------------------------------------------------------------------------------------
+
+
+(def read-chan (chan 1 (map #(-> % .-target .-result js->clj))))
+
+
+(defn ensure-english-setting []
+  (let [url-parts (url (.. js/window -location -href))]
+    (when-not (= "en" (get-in url-parts [:query "hl"]))
+      (js/alert "Bulk URL Removal extension works properly only in English. Press OK to set the language to English.")
+      (set! (.. js/window -location -href) (str (assoc-in url-parts [:query "hl"] "en")))
+      )))
+
+
 
 (defn setup-continue-ui [background-port]
   (let [continue-button-el (hipo/create [:div [:button {:type "button"
