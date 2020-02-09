@@ -35,6 +35,7 @@
         )
     ))
 
+;; TODO: deprecated?
 (defn update-removal-status
   "Grab the most recent table entry and compare that against what we think the most recent url instead of
   grabbing the url from the status message."
@@ -54,39 +55,74 @@
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
   "url-method: :remove-url vs :clear-cached
-  url-type: :url-only vs :prefix"
+  url-type: :url-only vs :prefix
+  Possible return value in a channel
+  1. :not-in-property
+  2. :duplicate-request
+  3. :malform-url
+  4. :success
+  "
   [url url-method url-type]
-  (let [url-type-str (if (= url-type :prefix)
-                           "Remove all URLs with this prefix"
-                           "Remove this URL only")]
+  (let [ch (chan)
+        url-type-str (if (= url-type :prefix)
+                       "Remove all URLs with this prefix"
+                       "Remove this URL only")]
 
-   (go (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
+    (go (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
 
-       (<! (async/timeout 700)) ;; wait for the modal dialog to show
-       ;; Who cares? Click on all the radiobuttons
-       (doseq [n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))]
-         (.click n))
+        (<! (async/timeout 700)) ;; wait for the modal dialog to show
+        ;; Who cares? Click on all the radiobuttons
+        (doseq [n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))]
+          (.click n))
 
-       (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
-         (do
-           (.click n)
-           (domina/set-value! n url)))
+        (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
+          (do
+            (.click n)
+            (domina/set-value! n url)))
 
-       ;; NOTE: Need to click one of the tabs to get next to show
-       (if (= url-method :removal-url)
-         (do
-           (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
-           (<! (async/timeout 700))
-           (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]"))))
+        ;; NOTE: Need to click one of the tabs to get next to show
+        (if (= url-method :removal-url)
+          (do
+            (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
+            (<! (async/timeout 700))
+            (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]"))))
 
-         (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]"))))
+          (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]"))))
 
 
-       (<! (async/timeout 700))
-       (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
-       (<! (async/timeout 700))
-       (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
-       )))
+        (<! (async/timeout 700))
+        (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
+        (<! (async/timeout 1400))
+
+        ;; Check for "URL not in property"
+        (if-let [not-in-properity-node (single-node (xpath "//div[contains(text(), 'URL not in property')]"))]
+          ;; Oops, not in the right domain
+          (do
+            (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
+            (<! (async/timeout 700))
+            (.click (single-node (xpath "//span[contains(text(), 'cancel')]")))
+            (>! ch :not-in-property))
+
+          (do (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
+              (<! (async/timeout 1400))
+              ;; NOTE: may encounter
+              ;; 1. Duplicate request
+              ;; 2. Malform URL
+              ;; These show up as a modal dialog. Need to check for them
+              ;; Check for post submit modal dialog
+              (let [dup-req-node (single-node (xpath "//div[contains(text(), 'Duplicate request')]"))
+                    malform-url-node (single-node (xpath "//div[contains(text(), 'Malformed URL')]"))
+                    _ (<! (async/timeout 700))]
+                (cond (not (nil? dup-req-node)) (do
+                                                  (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
+                                                  (>! ch :duplicate-request))
+                      (not (nil? malform-url-node)) (do
+                                                      (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
+                                                      (>! ch :malform-url))
+                      :else (>! ch :success)
+                      )
+                ))))
+    ch))
 
 (def upload-chan (chan 1 (map (fn [e]
                                 (let [target (.-currentTarget e)
@@ -110,11 +146,9 @@
         print-db-btn-el (hipo/create [:div
                                       [:button {:type "button"
                                                 :on-click (fn [_]
-                                                            (log "print db btn clicked!")
                                                             (print-victims)
                                                             (go
-                                                              (let [_ (prn "did we get here?")
-                                                                    bad-victims (<! (get-bad-victims))]
+                                                              (let [bad-victims (<! (get-bad-victims))]
                                                                 (prn "bad-victims: "  bad-victims)
                                                                 ))
                                                             )
@@ -138,16 +172,21 @@
     (prn "CONTENT SCRIPT: process-message!: " whole-msg)
     (cond (= type :done-init-victims) (post-message! chan (common/marshall {:type :next-victim}))
           (= type :remove-url) (do (prn "handling :remove-url")
-                                   ;; TODO: updte the status
-                                   ;; TODO: the ui disappear after
                                    (go
-                                     (let [{:keys [victim removal-method url-type]} whole-msg]
-                                       (<! (exec-new-removal-request victim removal-method url-type))
-                                       (<! (cljs.core.async/timeout 1400))
-                                       (<! (update-removal-status))
+                                     (let [{:keys [victim removal-method url-type]} whole-msg
+                                           request-status (<! (exec-new-removal-request victim
+                                                                                        removal-method url-type))
+                                           _ (<! (async/timeout 1200))]
+                                       (prn "request-status: " request-status)
+                                       (if (or (= :success request-status) (= :duplicate-request request-status))
+                                         (post-message! chan (common/marshall {:type :success
+                                                                               :url victim}))
+                                         (post-message! chan (common/marshall {:type :skip-error
+                                                                               :reason request-status
+                                                                               :url victim
+                                                                               })))
                                        (when-not (single-node (xpath "//input[@id='bulkCsvFileInput']"))
                                          (setup-ui chan))
-                                       (post-message! chan (common/marshall {:type :next-victim}))
                                        )))
           )
     ))
@@ -168,6 +207,7 @@
 
 
 
+;; TODO: to be deprecated?
 (defn setup-continue-ui [background-port]
   (let [continue-button-el (hipo/create [:div [:button {:type "button"
                                                         :on-click (fn []

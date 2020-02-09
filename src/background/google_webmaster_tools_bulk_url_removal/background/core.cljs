@@ -9,6 +9,8 @@
             [chromex.ext.tabs :as tabs]
             [chromex.ext.runtime :as runtime]
             [chromex.ext.windows :as cwin :refer-macros [create]]
+            [cljs-time.core :as tt]
+            [cljs-time.coerce :as tc]
             [cognitect.transit :as t]
             [chromex.ext.browser-action :refer-macros [set-badge-text set-badge-background-color]]
             [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! store-victims! update-storage next-victim *DONE-FLAG* get-bad-victims]]
@@ -50,6 +52,25 @@
             :method_v_2 {:submit-ts __ :remove-ts __ :status :pending}
             }}
 
+(defn fetch-next-victim [client]
+  (go
+    (let [[victim-url victim-entry] (<! (next-victim))
+          _ (prn "BACKGROUND: victim-url: " victim-url)
+          _ (prn "BACKGROUND: victim-entry: " victim-entry)]
+      (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") *DONE-FLAG*))
+            (do (prn "DONE!!!")
+                (post-message! client
+                               (common/marshall {:type :done})))
+
+            (and victim-url victim-entry)
+            (post-message! client
+                           (common/marshall {:type :remove-url
+                                             :victim victim-url
+                                             :removal-method (get victim-entry "removal-method")
+                                             :url-type (get victim-entry "url-type")
+                                             })))
+      )))
+
 (defn run-client-message-loop! [client]
   (log "BACKGROUND: starting event loop for client:" (get-sender client))
   (go-loop []
@@ -64,31 +85,45 @@
                                        (store-victims! whole-edn)
                                        (post-message! client (common/marshall {:type :done-init-victims})))
               (= type :next-victim) (do
-                                      (prn "inside: :next-victim: " whole-edn)
-                                      (go
-                                        (let [[victim-url victim-entry] (<! (next-victim))
-                                              _ (prn "BACKGROUND: victim-url: " victim-url)
-                                              _ (prn "BACKGROUND: victim-entry: " victim-entry)]
-                                          (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") *DONE-FLAG*))
-                                                (do (prn "DONE!!!")
-                                                    (post-message! client
-                                                                   (common/marshall {:type :done})))
+                                      (<! (fetch-next-victim client))
+                                      ;; (go
+                                      ;;   (let [[victim-url victim-entry] (<! (next-victim))
+                                      ;;         _ (prn "BACKGROUND: victim-url: " victim-url)
+                                      ;;         _ (prn "BACKGROUND: victim-entry: " victim-entry)]
+                                      ;;     (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") *DONE-FLAG*))
+                                      ;;           (do (prn "DONE!!!")
+                                      ;;               (post-message! client
+                                      ;;                              (common/marshall {:type :done})))
 
-                                                (and victim-url victim-entry)
-                                                (post-message! client
-                                                               (common/marshall {:type :remove-url
-                                                                                 :victim victim-url
-                                                                                 :removal-method (get victim-entry "removal-method")
-                                                                                 :url-type (get victim-entry "url-type")
-                                                                                 })))
-                                         )
-                                        ))
+                                      ;;           (and victim-url victim-entry)
+                                      ;;           (post-message! client
+                                      ;;                          (common/marshall {:type :remove-url
+                                      ;;                                            :victim victim-url
+                                      ;;                                            :removal-method (get victim-entry "removal-method")
+                                      ;;                                            :url-type (get victim-entry "url-type")
+                                      ;;                                            })))
+                                      ;;    )
+                                      ;;   )
+                                      )
+              (= type :success) (go
+                                  (prn "handle success!!! : " whole-edn) ;;xxx
+                                  (let [{:keys [url]} whole-edn]
+                                    (<! (update-storage url
+                                                        "status" "removed"
+                                                        "remove-ts" (tc/to-long (tt/now))
+                                                        ))
+                                    (<! (fetch-next-victim client))
+
+                                    ))
+
               (= type :skip-error) (do
                                      (prn "inside :skip-error:" whole-edn)
                                      ;; NOTE: Does someone else need to fire off a next victim event?
                                      ;; No, in removals.cljs, after firing off :skip-error message,
                                      ;; it clicks on cancel right away. This brings the page back to the
                                      ;; main page, which triggers another :next-victim event.
+
+                                     ;; NOTE: ^^ That's not the case any longer in the new version. There's no page refresh
                                      (go
                                        (let [{:keys [url reason]} whole-edn
                                              error-entry {:url url :reason reason}
@@ -109,6 +144,7 @@
                                                                          {:type :new-error :error updated-error-entry}))
                                            (post-message! popup-client (common/marshall
                                                                         {:type :new-error :error updated-error-entry})))
+                                         (<! (fetch-next-victim client))
                                          )))
 
               (= type :fetch-initial-errors) (go
