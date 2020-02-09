@@ -66,8 +66,7 @@
   (let [ch (chan)
         url-type-str (cond (= url-type "prefix") "Remove all URLs with this prefix"
                            (= url-type "url-only") "Remove this URL only"
-                           )
-        ]
+                           )]
     (go
       (cond (and (not= url-method "remove-url") (not= url-method "clear-cached"))
             (>! ch :erroneous-url-method)
@@ -295,12 +294,13 @@
             _ (prn "file-content: " (clojure.string/trim file-content))
             csv-data (->> (csv/read-csv (clojure.string/trim file-content))
                           ;; trim off random whitespaces
-                          (map (fn [[url method]]
+                          (map (fn [[url method url-type]]
                                  (->> [(clojure.string/trim url)
-                                       (when method (clojure.string/trim method))]
+                                       (when method (clojure.string/trim method))
+                                       (when url-type (clojure.string/trim url-type))]
                                       (filter (complement nil?))
                                       ))))]
-        (prn "about to call :init-victims")
+        (log "about to call :init-victims")
         (post-message! background-port (common/marshall {:type :init-victims
                                                          :data csv-data
                                                          }))
@@ -314,7 +314,6 @@
 
       )
 
-    ;(exec-new-removal-request "https://polymorphiclabs.io/en-us/blah/blah/" :clear-cached :prefix)
     ;; function my_click(el) {
     ;;                        var evt=document.createEvent("MouseEvent");
     ;;                        evt.initMouseEvent("click", true, true, window, 1, 0, 0, 0, 0, undefined, undefined, undefined, undefined, 0, null);
