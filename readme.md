@@ -15,7 +15,7 @@ https://chrome.google.com/webstore/detail/webmaster-tools-bulk-url/pmnpibilljafe
 6. Click on **Load unpacked extension . . .** and load the extension.
 
 ## Usage
-1. Create a list of urls to be removed and store them in a file. All urls are separated by \n. See [How to Extract a List of All URLs Indexed by Google for Your Website](https://cognitiveseo.com/blog/5714/69-amazing-seo-bookmarklets-to-supercharge-your-internet-marketing/#1-2) for an easy way to get all links from a website from Google Search results.
+1. Create a list of urls to be removed and store them in a file. See below for format.
 2. Go to Google's Search Console formerly known as Google's Webmaster Tools. (https://search.google.com/u/1/search-console)
 4. Click on Removals on the left panel.
 5. Click on  "Choose File" button to upload your csv file. It wil start running automatically.
@@ -28,7 +28,7 @@ The extension uses chrome's local storage to keep track of state for each URL. Y
 ~~While the extension is at a paused state, you can also inspect what URLs are still pending to be removed. Right click anywhere on the page and select **Inspect**. Then, click on the **View local storage** button. The current local storage state will be printed out under the **Console** tab.~~
 
 ## CSV Format
-url (required), removal-method (optional: remove-url, clear-cached), url-type (optional: url-only, prefix)
+url (required), removal-method (optional: remove-url, clear-cached), url-type (optional: url-only, prefix) <br />
 By default `removal-method` is set to `removel-url`, and `url-type` is set to `url-only`
 
 ## Bulk Outdated Content Removal
