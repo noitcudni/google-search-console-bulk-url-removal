@@ -68,7 +68,6 @@
                            (= url-type "url-only") "Remove this URL only"
                            )
         ]
-
     (go
       (cond (and (not= url-method "remove-url") (not= url-method "clear-cached"))
             (>! ch :erroneous-url-method)

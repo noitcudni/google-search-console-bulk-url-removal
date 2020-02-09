@@ -25,15 +25,6 @@
         "compiled/content-script/main.js"
       ],
       "run_at": "document_end"
-    },
-    {
-      "matches": [
-        "https://www.google.com/webmasters/tools/removals-request*"
-      ],
-      "js": [
-        "compiled/removals_request/removals_request.js"
-      ],
-      "run_at": "document_end"
     }
   ],
   "background": {
@@ -41,11 +32,9 @@
     "persistent": false
   },
   "permissions": [
-    "tabs",
     "storage",
     "downloads",
-    "unlimitedStorage",
-    "https://search.google.com/u/1/search-console/removals*"
+    "unlimitedStorage"
   ],
   "manifest_version": 2
 }
