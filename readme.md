@@ -28,8 +28,11 @@ The extension uses chrome's local storage to keep track of state for each URL. Y
 ~~While the extension is at a paused state, you can also inspect what URLs are still pending to be removed. Right click anywhere on the page and select **Inspect**. Then, click on the **View local storage** button. The current local storage state will be printed out under the **Console** tab.~~
 
 ## CSV Format
-url (required), removal-method (optional: remove-url, clear-cached), url-type (optional: url-only, prefix) <br />
+url (required), removal-method (optional: `remove-url`, `clear-cached`), url-type (optional: `url-only`, `prefix`) <br />
 By default `removal-method` is set to `removel-url`, and `url-type` is set to `url-only`
+
+## Troubleshooting
+If the buttons goes away, just refresh the page. They will reappear
 
 ## Bulk Outdated Content Removal
 For removing outdated content in bulk. Please visit [https://github.com/noitcudni/google-webmaster-tools-bulk-outdated-content-removal](https://github.com/noitcudni/google-webmaster-tools-bulk-outdated-content-removal)
