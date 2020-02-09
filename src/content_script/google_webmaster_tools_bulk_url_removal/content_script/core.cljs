@@ -64,64 +64,78 @@
   "
   [url url-method url-type]
   (let [ch (chan)
-        url-type-str (if (= url-type :prefix)
-                       "Remove all URLs with this prefix"
-                       "Remove this URL only")]
+        url-type-str (cond (= url-type "prefix") "Remove all URLs with this prefix"
+                           (= url-type "url-only") "Remove this URL only"
+                           )
+        ]
 
-    (go (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
+    (go
+      (cond (and (not= url-method "remove-url") (not= url-method "clear-cached"))
+            (>! ch :erroneous-url-method)
+            (and (not= url-type "url-only") (not= url-type "prefix"))
+            (>! ch :erroneous-url-type)
+            :else
+            (do (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
 
-        (<! (async/timeout 700)) ;; wait for the modal dialog to show
-        ;; Who cares? Click on all the radiobuttons
-        (doseq [n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))]
-          (.click n))
+                (<! (async/timeout 700)) ;; wait for the modal dialog to show
+                ;; Who cares? Click on all the radiobuttons
+                (doseq [n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))]
+                  (.click n))
 
-        (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
-          (do
-            (.click n)
-            (domina/set-value! n url)))
+                (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
+                  (do
+                    (.click n)
+                    (domina/set-value! n url)))
 
-        ;; NOTE: Need to click one of the tabs to get next to show
-        (if (= url-method :removal-url)
-          (do
-            (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
-            (<! (async/timeout 700))
-            (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]"))))
-
-          (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]"))))
-
-
-        (<! (async/timeout 700))
-        (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
-        (<! (async/timeout 1400))
-
-        ;; Check for "URL not in property"
-        (if-let [not-in-properity-node (single-node (xpath "//div[contains(text(), 'URL not in property')]"))]
-          ;; Oops, not in the right domain
-          (do
-            (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
-            (<! (async/timeout 700))
-            (.click (single-node (xpath "//span[contains(text(), 'cancel')]")))
-            (>! ch :not-in-property))
-
-          (do (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
-              (<! (async/timeout 1400))
-              ;; NOTE: may encounter
-              ;; 1. Duplicate request
-              ;; 2. Malform URL
-              ;; These show up as a modal dialog. Need to check for them
-              ;; Check for post submit modal dialog
-              (let [dup-req-node (single-node (xpath "//div[contains(text(), 'Duplicate request')]"))
-                    malform-url-node (single-node (xpath "//div[contains(text(), 'Malformed URL')]"))
-                    _ (<! (async/timeout 700))]
-                (cond (not (nil? dup-req-node)) (do
-                                                  (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
-                                                  (>! ch :duplicate-request))
-                      (not (nil? malform-url-node)) (do
-                                                      (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
-                                                      (>! ch :malform-url))
-                      :else (>! ch :success)
+                ;; NOTE: Need to click one of the tabs to get next to show
+                (cond (= url-method "remove-url")
+                      (do
+                        (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
+                        (<! (async/timeout 700))
+                        (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]"))))
+                      (= url-method "clear-cached")
+                      (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
+                      ;; :else
+                      ;; trigger skip-error
                       )
-                ))))
+
+
+                (<! (async/timeout 700))
+                (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
+                (<! (async/timeout 1400))
+
+                ;; Check for "URL not in property"
+                (if-let [not-in-properity-node (single-node (xpath "//div[contains(text(), 'URL not in property')]"))]
+                  ;; Oops, not in the right domain
+                  (do
+                    (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
+                    (<! (async/timeout 700))
+                    (.click (single-node (xpath "//span[contains(text(), 'cancel')]")))
+                    (>! ch :not-in-property))
+
+                  (do (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
+                      (<! (async/timeout 1400))
+                      ;; NOTE: may encounter
+                      ;; 1. Duplicate request
+                      ;; 2. Malform URL
+                      ;; These show up as a modal dialog. Need to check for them
+                      ;; Check for post submit modal dialog
+                      (let [dup-req-node (single-node (xpath "//div[contains(text(), 'Duplicate request')]"))
+                            malform-url-node (single-node (xpath "//div[contains(text(), 'Malformed URL')]"))
+                            _ (<! (async/timeout 700))]
+                        (cond (not (nil? dup-req-node)) (do
+                                                          (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
+                                                          (>! ch :duplicate-request))
+                              (not (nil? malform-url-node)) (do
+                                                              (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
+                                                              (>! ch :malform-url))
+                              :else (>! ch :success)
+                              )
+                        ))))
+
+
+            ))
+
     ch))
 
 (def upload-chan (chan 1 (map (fn [e]

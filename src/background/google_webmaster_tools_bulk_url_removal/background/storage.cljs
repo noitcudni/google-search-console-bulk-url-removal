@@ -26,11 +26,11 @@
         data (concat data [["poison-pill" *DONE-FLAG*]])]
     (go-loop [[[url optional-removal-method optional-url-type :as curr] & more] data
               idx 0]
-      (let [optional-removal-method (or (if (empty? optional-removal-method) nil optional-removal-method) "removal-url")
+      (let [optional-removal-method (or (if (empty? optional-removal-method) nil optional-removal-method) "remove-url")
             optional-url-type (or (if (empty? optional-url-type) nil optional-url-type) "url-only")]
        (if (nil? curr)
          (log "DONE storing victims")
-         (let [removal-method (cond (contains? #{"removal-url", "clear-cached"} optional-removal-method) optional-removal-method
+         (let [removal-method (cond (contains? #{"remove-url", "clear-cached"} optional-removal-method) optional-removal-method
                                     ;; Pass along the erroneous removal-method. It will be handled later
                                     :else optional-removal-method)
                url-type (cond (contains? #{"url-only", "prefix"} optional-url-type) optional-url-type
