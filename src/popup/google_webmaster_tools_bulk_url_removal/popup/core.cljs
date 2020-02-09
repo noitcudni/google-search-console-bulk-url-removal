@@ -50,8 +50,8 @@
 (defn csv-content [input]
   (->> input
        clojure.walk/keywordize-keys
-       (map (fn [[url {:keys [error-reason removal-method] :as v}]]
-              [url error-reason removal-method]))))
+       (map (fn [[url {:keys [error-reason removal-method url-type] :as v}]]
+              [url error-reason removal-method url-type]))))
 
 (defn current-page []
   (let [download-fn (fn []
