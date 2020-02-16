@@ -38,12 +38,21 @@
     (swap! clients remove-item client)))
 
 
+(defn popup-predicate [client]
+  (re-find #"popup.html" (-> client
+                             get-sender
+                             js->clj
+                             (get "url"))))
+
 (defn get-popup-client []
   (->> @clients
-       (filter (fn [c] (re-find #"popup.html" (-> c
-                                                  get-sender
-                                                  js->clj
-                                                  (get "url")))))
+       (filter popup-predicate)
+       first ;;this should only be one popup
+       ))
+
+(defn get-content-client []
+  (->> @clients
+       (filter (complement popup-predicate))
        first ;;this should only be one popup
        ))
 
@@ -78,33 +87,14 @@
       (log "BACKGROUND: got client message:" message "from" (get-sender client))
       (let [{:keys [type] :as whole-edn} (common/unmarshall message)]
         (cond (= type :init-victims) (do
-                                       (prn "inside :init-victims: " whole-edn)
+                                       (prn "inside :init-victims --  whole-edn: " whole-edn)
+                                       (prn "content-client: " (get-content-client))
                                        ;; clean up errors from the previous run
                                        (clear-victims!)
                                        (set-badge-text #js{"text" ""})
                                        (store-victims! whole-edn)
-                                       (post-message! client (common/marshall {:type :done-init-victims})))
-              (= type :next-victim) (do
-                                      (<! (fetch-next-victim client))
-                                      ;; (go
-                                      ;;   (let [[victim-url victim-entry] (<! (next-victim))
-                                      ;;         _ (prn "BACKGROUND: victim-url: " victim-url)
-                                      ;;         _ (prn "BACKGROUND: victim-entry: " victim-entry)]
-                                      ;;     (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") *DONE-FLAG*))
-                                      ;;           (do (prn "DONE!!!")
-                                      ;;               (post-message! client
-                                      ;;                              (common/marshall {:type :done})))
-
-                                      ;;           (and victim-url victim-entry)
-                                      ;;           (post-message! client
-                                      ;;                          (common/marshall {:type :remove-url
-                                      ;;                                            :victim victim-url
-                                      ;;                                            :removal-method (get victim-entry "removal-method")
-                                      ;;                                            :url-type (get victim-entry "url-type")
-                                      ;;                                            })))
-                                      ;;    )
-                                      ;;   )
-                                      )
+                                       (post-message! (get-content-client) (common/marshall {:type :done-init-victims})))
+              (= type :next-victim) (<! (fetch-next-victim client))
               (= type :success) (go
                                   (prn "handle success!!! : " whole-edn) ;;xxx
                                   (let [{:keys [url]} whole-edn]

@@ -1,5 +1,5 @@
 (ns google-webmaster-tools-bulk-url-removal.popup.core
-  (:require-macros [cljs.core.async.macros :refer [go-loop]]
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]
                    [reagent.ratom :refer [reaction]])
   (:require [cljs.core.async :refer [<! >! put! chan] :as async]
             [hipo.core :as hipo]
@@ -14,7 +14,7 @@
             [testdouble.cljs.csv :as csv]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
             [reagent.core :as reagent :refer [atom]]
-            [google-webmaster-tools-bulk-url-removal.background.storage :refer [get-bad-victims]]
+            [google-webmaster-tools-bulk-url-removal.background.storage :refer [clear-victims! print-victims get-bad-victims]]
             ))
 
 ; -- setting up channels for csv input  --
@@ -35,7 +35,7 @@
   (when (> (count @cached-bad-victims-atom) 0)
     (reset! disable-error-download-ratom? false)))
 
-(defn process-message! [message]
+(defn process-message! [channel message]
   (let [{:keys [type] :as whole-edn} (common/unmarshall message)]
     ;; TODO display errors in popup
     (cond (= type :init-errors) (do (prn "init-errors: " whole-edn)
@@ -46,20 +46,20 @@
                                   (update-download-btn-ratom))
           (= type :done) (do (prn "done: " whole-edn)
                              (update-download-btn-ratom))
+          ;; (= type :done-init-victims) (post-message! channel (common/marshall {:type :next-victim}))
           )))
 
 (defn run-message-loop! [message-channel]
   (log "POPUP: starting message loop...")
   (go-loop []
     (when-some [message (<! message-channel)]
-      (process-message! message)
+      (process-message! message-channel message)
       (recur))
     (log "POPUP: leaving message loop")))
 
-(defn connect-to-background-page! []
-  (let [background-port (runtime/connect)]
-    (post-message! background-port (common/marshall {:type :fetch-initial-errors}))
-    (run-message-loop! background-port)))
+(defn connect-to-background-page! [background-port]
+  (post-message! background-port (common/marshall {:type :fetch-initial-errors}))
+  (run-message-loop! background-port))
 
 (defn csv-content [input]
   (->> input
@@ -77,19 +77,8 @@
                                             :filename "error.csv"
                                             :saveAs true
                                             :conflictAction "overwrite"
-                                            }))
-
-                        ))
-        cnt-ratom (reaction (count @cached-bad-victims-atom))
-        ;; file-input-el (hipo/create ;; [:div {:style {:background-color "blue"}}
-        ;;                            ;;  [:input {:id "bulkCsvFileInput" :type "file"
-        ;;                            ;;           :on-change (fn [e] (put! upload-chan e))
-        ;;                            ;;           }]]
-        ;;                [:span {:style {:color "red"}} " and red "]
-        ;; )
-        ;; target-el (single-node (xpath "//div[@id='app']"))
-        ;; _ (dommy/append! target-el file-input-el)
-        ]
+                                            }))))
+        cnt-ratom (reaction (count @cached-bad-victims-atom))]
     (fn []
       [recom/v-box
        :width "360px"
@@ -103,9 +92,9 @@
                    :align :start
                    :style {:padding "10px"}
                    :children [[recom/title :label "Instructions:" :level :level1]
-                              [recom/label :label "Go to your Google Search Account"]
-                              [recom/label :label "Click on 'Legacy Tools and Reports > Removals'"]
-                              [recom/label :label "Upload your csv file by clicking on the 'Choose file' button"]]]
+                              [recom/label :label "- Go to Google Search Console"]
+                              [recom/label :label "- Select Removals on the left"]
+                              [recom/label :label "- Upload your csv file by clicking on the 'Submit CSV File' button"]]]
                   [recom/v-box
                    :gap "10px"
                    :children [[recom/button
@@ -115,16 +104,23 @@
                                        :color "white"
                                        }
                                :on-click (fn [e]
-                                           (-> "//input[@id='bulkCsvFileInput']" xpath single-node .click))
-                               ]
+                                           (-> "//input[@id='bulkCsvFileInput']" xpath single-node .click))]
                               [recom/button
                                :label "Clear cache"
-                               :style {:width "200px"
-                                       :background-color "#007bff"
-                                       :color "white"
-                                       }
-
-                               ]]]
+                               :style {:width "200px"}
+                               :on-click (fn [_]
+                                           (log "clear victims from local storage.") ;;xxx
+                                           (clear-victims!))]
+                              [recom/button
+                               :label "View cache"
+                               :style {:width "200px"}
+                               :on-click (fn [_]
+                                           (print-victims)
+                                           (go
+                                             (let [bad-victims (<! (get-bad-victims))]
+                                               (prn "bad-victims: "  bad-victims)
+                                               )))]
+                              ]]
 
                   [recom/h-box
                    :children [[recom/title :label "Error Count: " :level :level1]
@@ -144,32 +140,33 @@
   (reagent/render [current-page] (.getElementById js/document "app")))
 
 (defn init! []
-  (log "POPUP: init")
-  ;; handle onload
-  (go-loop []
-    (let [reader (js/FileReader.)
-          file (<! upload-chan)]
-      (set! (.-onload reader) #(put! read-chan %))
-      (.readAsText reader file)
-      (recur)))
+  (let [_ (log "POPUP: init")
+        background-port (runtime/connect)]
+    ;; handle onload
+    (go-loop []
+      (let [reader (js/FileReader.)
+            file (<! upload-chan)]
+        (set! (.-onload reader) #(put! read-chan %))
+        (.readAsText reader file)
+        (recur)))
 
-  ;; handle read the file
-  (go-loop []
-    (let [file-content (<! read-chan)
-          _ (prn "file-content: " (clojure.string/trim file-content))
-          csv-data (->> (csv/read-csv (clojure.string/trim file-content))
-                        ;; trim off random whitespaces
-                        (map (fn [[url method url-type]]
-                               (->> [(clojure.string/trim url)
-                                     (when method (clojure.string/trim method))
-                                     (when url-type (clojure.string/trim url-type))]
-                                    (filter (complement nil?))
-                                    ))))]
-      (log "about to call :init-victims")
-      ;; (post-message! background-port (common/marshall {:type :init-victims
-      ;;                                                  :data csv-data
-      ;;                                                  }))
-      (recur)))
+    ;; handle read the file
+    (go-loop []
+      (let [file-content (<! read-chan)
+            _ (prn "file-content: " (clojure.string/trim file-content))
+            csv-data (->> (csv/read-csv (clojure.string/trim file-content))
+                          ;; trim off random whitespaces
+                          (map (fn [[url method url-type]]
+                                 (->> [(clojure.string/trim url)
+                                       (when method (clojure.string/trim method))
+                                       (when url-type (clojure.string/trim url-type))]
+                                      (filter (complement nil?))
+                                      ))))]
+        (log "about to call :init-victims")
+        (post-message! background-port (common/marshall {:type :init-victims
+                                                         :data csv-data
+                                                         }))
+        (recur)))
 
-  (connect-to-background-page!)
-  (mount-root))
+    (connect-to-background-page! background-port)
+    (mount-root)))
