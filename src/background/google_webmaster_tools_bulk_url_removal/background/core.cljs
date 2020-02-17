@@ -68,6 +68,8 @@
           _ (prn "BACKGROUND: victim-entry: " victim-entry)]
       (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") *DONE-FLAG*))
             (do (prn "DONE!!!")
+                (post-message! (get-popup-client)
+                               (common/marshall {:type :done}))
                 (post-message! client
                                (common/marshall {:type :done})))
 

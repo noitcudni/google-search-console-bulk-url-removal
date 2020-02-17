@@ -20,6 +20,7 @@
             ))
 
 ; -- setting up channels for csv input  --
+(def my-status (atom :done)) ;; :done or :running
 (def upload-chan (chan 1 (map (fn [e]
                                 (let [target (.-currentTarget e)
                                       file (-> target .-files (aget 0))]
@@ -42,7 +43,8 @@
                                                                            :error
                                                                            (into [])
                                                                            first)))
-          (= type :done) (do (prn "done: " whole-edn))
+          (= type :done) (do (prn "done: " whole-edn)
+                             (reset! my-status :done))
           ;; (= type :done-init-victims) (post-message! channel (common/marshall {:type :next-victim}))
           )))
 
@@ -65,7 +67,8 @@
               [url error-reason removal-method url-type]))))
 
 (defn current-page []
-  (let [disable-error-download-ratom? (reaction (zero? (count @cached-bad-victims-atom)))
+  (let [disable-error-download-ratom? (reaction (or (not= :done @my-status)
+                                                    (zero? (count @cached-bad-victims-atom))))
         download-fn (fn []
                       (let [content (-> @cached-bad-victims-atom csv-content csv/write-csv)
                             data-blob (js/Blob. (clj->js [content])
@@ -85,6 +88,7 @@
                     [:div {:style {:display "none"}}
                      [:input {:id "bulkCsvFileInput" :type "file"
                               :on-change (fn [e]
+                                           (reset! my-status :running)
                                            (reset! cached-bad-victims-atom nil)
                                            (put! upload-chan e))
                               }]]
