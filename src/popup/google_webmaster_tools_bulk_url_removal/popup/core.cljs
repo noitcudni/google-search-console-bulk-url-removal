@@ -10,6 +10,7 @@
             [chromex.protocols.chrome-port :refer [post-message!]]
             [chromex.ext.runtime :as runtime :refer-macros [connect]]
             [chromex.ext.downloads :refer-macros [download]]
+            [chromex.ext.browser-action :refer-macros [set-badge-text]]
             [re-com.core :as recom]
             [testdouble.cljs.csv :as csv]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
@@ -102,8 +103,9 @@
                                :label "Clear cache"
                                :style {:width "200px"}
                                :on-click (fn [_]
-                                           (log "clear victims from local storage.") ;;xxx
-                                           (clear-victims!))]
+                                           (clear-victims!)
+                                           (set-badge-text #js{"text" ""})
+                                           (reset! cached-bad-victims-atom nil))]
                               [recom/button
                                :label "View cache"
                                :style {:width "200px"}
