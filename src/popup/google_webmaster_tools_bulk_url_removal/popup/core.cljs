@@ -82,7 +82,7 @@
     (fn []
       (let [cnt-ratom (reaction (count @cached-bad-victims-atom))]
         [recom/v-box
-         :width "360px"
+         :width "380px"
          :align :center
          :children [
                     [:div {:style {:display "none"}}
@@ -96,9 +96,10 @@
                      :align :start
                      :style {:padding "10px"}
                      :children [[recom/title :label "Instructions:" :level :level1]
-                                [recom/label :label "- Go to Google Search Console"]
-                                [recom/label :label "- Select Removals on the left"]
-                                [recom/label :label "- Upload your csv file by clicking on the 'Submit CSV File' button"]]]
+                                [recom/label :label "- Go to Google Search Console."]
+                                [recom/label :label "- Select the proper domain from the dropdown on the left."]
+                                [recom/label :label "- Select Removals on the left."]
+                                [recom/label :label "- Upload your csv file by clicking on the 'Submit CSV File' button."]]]
                     [recom/v-box
                      :gap "10px"
                      :children [[recom/button
@@ -134,8 +135,8 @@
                                 ]]
 
                     [recom/h-box
-                     :children [[recom/title :label "Error Count: " :level :level1]
-                                [recom/title :label (str @cnt-ratom) :level :level1]]]
+                     :children [[recom/title :label "Error Count: " :level :level2]
+                                [recom/title :label (str @cnt-ratom) :level :level2]]]
                     [recom/button
                      :label "Download Error CSV"
                      :disabled? @disable-error-download-ratom?

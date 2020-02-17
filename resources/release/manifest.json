@@ -14,23 +14,13 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.google.com/webmasters/tools/url-removal*"
+        "https://search.google.com/u/1/search-console/removals*"
       ],
       "js": [
         "compiled/content-script.js"
       ],
       "run_at": "document_end"
-    },
-    {
-      "matches": [
-        "https://www.google.com/webmasters/tools/removals-request*"
-      ],
-      "js": [
-        "compiled/removals_request.js"
-      ],
-      "run_at": "document_end"
     }
-
   ],
   "background": {
     "page": "background.html",
