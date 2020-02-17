@@ -123,6 +123,7 @@
                                                                                :url victim
                                                                                })))
                                        )))
+          (= type :done) (js/alert "DONE with bulk url removals!")
           )
     ))
 
