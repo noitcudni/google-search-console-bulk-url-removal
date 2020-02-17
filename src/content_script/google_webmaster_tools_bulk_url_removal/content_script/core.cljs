@@ -143,6 +143,7 @@
                                   file
                                   )))))
 
+;; TODO: deprecated
 (defn setup-ui [background-port]
   (let [file-input-el (hipo/create [:div
                                     [:input {:id "bulkCsvFileInput" :type "file"
@@ -309,17 +310,10 @@
     ;;;; new version
     (go
       (ensure-english-setting)
-      (setup-ui background-port)
+      ;; (setup-ui background-port) ;; TODO: this is deprecated
       (common/connect-to-background-page! background-port process-message!)
 
       )
-
-    ;; function my_click(el) {
-    ;;                        var evt=document.createEvent("MouseEvent");
-    ;;                        evt.initMouseEvent("click", true, true, window, 1, 0, 0, 0, 0, undefined, undefined, undefined, undefined, 0, null);
-    ;;                        el.dispatchEvent(evt);
-    ;;                        }
-
 
     ;; (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL'")))
 
