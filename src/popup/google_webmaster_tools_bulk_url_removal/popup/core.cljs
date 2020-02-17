@@ -11,6 +11,7 @@
             [chromex.ext.runtime :as runtime :refer-macros [connect]]
             [chromex.ext.downloads :refer-macros [download]]
             [chromex.ext.browser-action :refer-macros [set-badge-text]]
+            [cemerick.url :refer [url]]
             [re-com.core :as recom]
             [testdouble.cljs.csv :as csv]
             [google-webmaster-tools-bulk-url-removal.content-script.common :as common]
@@ -93,10 +94,12 @@
                    :gap "10px"
                    :children [[recom/button
                                :label "Submit CSV File"
+                               :tooltip [recom/v-box
+                                         :children [[recom/label :label "Make sure that you are on "]
+                                                    [recom/label :label "Google Search Console's Removals page."]]]
                                :style {:width "200px"
                                        :background-color "#007bff"
-                                       :color "white"
-                                       }
+                                       :color "white"}
                                :on-click (fn [e]
                                            (-> "//input[@id='bulkCsvFileInput']" xpath single-node .click))]
                               [recom/button
@@ -108,6 +111,10 @@
                                            (reset! cached-bad-victims-atom nil))]
                               [recom/button
                                :label "View cache"
+                               :tooltip [recom/v-box
+                                         :children [[recom/label :label "Go to the chrome developer console"]
+                                                    [recom/label :label "Press me to see debugging information"]
+                                                    ]]
                                :style {:width "200px"}
                                :on-click (fn [_]
                                            (print-victims)
@@ -123,6 +130,10 @@
                   [recom/button
                    :label "Download Error CSV"
                    :disabled? @disable-error-download-ratom?
+                   :tooltip [recom/v-box
+                             :children
+                             [[recom/label :label "Click here to download "]
+                              [recom/label :label "the list of URLs that errored out."]]]
                    :style {:color            "white"
                            :background-color  "#d9534f"
                            :padding          "10px 16px"}
