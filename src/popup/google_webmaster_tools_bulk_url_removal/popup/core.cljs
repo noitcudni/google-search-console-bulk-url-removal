@@ -38,7 +38,10 @@
     (cond (= type :init-errors) (do (prn "init-errors: " whole-edn)
                                     (reset! cached-bad-victims-atom (-> whole-edn :bad-victims vec)))
           (= type :new-error) (do (prn "new-error: " whole-edn)
-                                  (swap! cached-bad-victims-atom conj (:error whole-edn)))
+                                  (swap! cached-bad-victims-atom conj (->> whole-edn
+                                                                           :error
+                                                                           (into [])
+                                                                           first)))
           (= type :done) (do (prn "done: " whole-edn))
           ;; (= type :done-init-victims) (post-message! channel (common/marshall {:type :next-victim}))
           )))
@@ -72,74 +75,74 @@
                                             :filename "error.csv"
                                             :saveAs true
                                             :conflictAction "overwrite"
-                                            }))))
-        cnt-ratom (reaction (count @cached-bad-victims-atom))]
+                                            }))))]
     (fn []
-      [recom/v-box
-       :width "360px"
-       :align :center
-       :children [
-                  [:div {:style {:display "none"}}
-                   [:input {:id "bulkCsvFileInput" :type "file"
-                            :on-change (fn [e] (put! upload-chan e))
-                            }]]
-                  [recom/v-box
-                   :align :start
-                   :style {:padding "10px"}
-                   :children [[recom/title :label "Instructions:" :level :level1]
-                              [recom/label :label "- Go to Google Search Console"]
-                              [recom/label :label "- Select Removals on the left"]
-                              [recom/label :label "- Upload your csv file by clicking on the 'Submit CSV File' button"]]]
-                  [recom/v-box
-                   :gap "10px"
-                   :children [[recom/button
-                               :label "Submit CSV File"
-                               :tooltip [recom/v-box
-                                         :children [[recom/label :label "Make sure that you are on "]
-                                                    [recom/label :label "Google Search Console's Removals page."]]]
-                               :style {:width "200px"
-                                       :background-color "#007bff"
-                                       :color "white"}
-                               :on-click (fn [e]
-                                           (-> "//input[@id='bulkCsvFileInput']" xpath single-node .click))]
-                              [recom/button
-                               :label "Clear cache"
-                               :style {:width "200px"}
-                               :on-click (fn [_]
-                                           (clear-victims!)
-                                           (set-badge-text #js{"text" ""})
-                                           (reset! cached-bad-victims-atom nil))]
-                              [recom/button
-                               :label "View cache"
-                               :tooltip [recom/v-box
-                                         :children [[recom/label :label "Go to the chrome developer console"]
-                                                    [recom/label :label "Press me to see debugging information"]
-                                                    ]]
-                               :style {:width "200px"}
-                               :on-click (fn [_]
-                                           (print-victims)
-                                           (go
-                                             (let [bad-victims (<! (get-bad-victims))]
-                                               (prn "bad-victims: "  bad-victims)
-                                               )))]
-                              ]]
+      (let [cnt-ratom (reaction (count @cached-bad-victims-atom))]
+        [recom/v-box
+         :width "360px"
+         :align :center
+         :children [
+                    [:div {:style {:display "none"}}
+                     [:input {:id "bulkCsvFileInput" :type "file"
+                              :on-change (fn [e] (put! upload-chan e))
+                              }]]
+                    [recom/v-box
+                     :align :start
+                     :style {:padding "10px"}
+                     :children [[recom/title :label "Instructions:" :level :level1]
+                                [recom/label :label "- Go to Google Search Console"]
+                                [recom/label :label "- Select Removals on the left"]
+                                [recom/label :label "- Upload your csv file by clicking on the 'Submit CSV File' button"]]]
+                    [recom/v-box
+                     :gap "10px"
+                     :children [[recom/button
+                                 :label "Submit CSV File"
+                                 :tooltip [recom/v-box
+                                           :children [[recom/label :label "Make sure that you are on "]
+                                                      [recom/label :label "Google Search Console's Removals page."]]]
+                                 :style {:width "200px"
+                                         :background-color "#007bff"
+                                         :color "white"}
+                                 :on-click (fn [e]
+                                             (-> "//input[@id='bulkCsvFileInput']" xpath single-node .click))]
+                                [recom/button
+                                 :label "Clear cache"
+                                 :style {:width "200px"}
+                                 :on-click (fn [_]
+                                             (clear-victims!)
+                                             (set-badge-text #js{"text" ""})
+                                             (reset! cached-bad-victims-atom nil))]
+                                [recom/button
+                                 :label "View cache"
+                                 :tooltip [recom/v-box
+                                           :children [[recom/label :label "Go to the chrome developer console"]
+                                                      [recom/label :label "Press me to see debugging information"]
+                                                      ]]
+                                 :style {:width "200px"}
+                                 :on-click (fn [_]
+                                             (print-victims)
+                                             (go
+                                               (let [bad-victims (<! (get-bad-victims))]
+                                                 (prn "bad-victims: "  bad-victims)
+                                                 )))]
+                                ]]
 
-                  [recom/h-box
-                   :children [[recom/title :label "Error Count: " :level :level1]
-                              [recom/title :label (str @cnt-ratom) :level :level1]]]
-                  [recom/button
-                   :label "Download Error CSV"
-                   :disabled? @disable-error-download-ratom?
-                   :tooltip [recom/v-box
-                             :children
-                             [[recom/label :label "Click here to download "]
-                              [recom/label :label "the list of URLs that errored out."]]]
-                   :style {:color            "white"
-                           :background-color  "#d9534f"
-                           :padding          "10px 16px"}
-                   :on-click download-fn]
-                  [recom/gap :size "30px"]]
-       ])))
+                    [recom/h-box
+                     :children [[recom/title :label "Error Count: " :level :level1]
+                                [recom/title :label (str @cnt-ratom) :level :level1]]]
+                    [recom/button
+                     :label "Download Error CSV"
+                     :disabled? @disable-error-download-ratom?
+                     :tooltip [recom/v-box
+                               :children
+                               [[recom/label :label "Click here to download "]
+                                [recom/label :label "the list of URLs that errored out."]]]
+                     :style {:color            "white"
+                             :background-color  "#d9534f"
+                             :padding          "10px 16px"}
+                     :on-click download-fn]
+                    [recom/gap :size "30px"]]
+         ]))))
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
 (defn mount-root []
