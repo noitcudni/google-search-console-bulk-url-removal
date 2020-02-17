@@ -29,23 +29,15 @@
 
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
 (def cached-bad-victims-atom (atom nil))
-(def disable-error-download-ratom? (reagent/atom true))
-
-(defn update-download-btn-ratom []
-  (when (> (count @cached-bad-victims-atom) 0)
-    (reset! disable-error-download-ratom? false)))
 
 (defn process-message! [channel message]
   (let [{:keys [type] :as whole-edn} (common/unmarshall message)]
     ;; TODO display errors in popup
     (cond (= type :init-errors) (do (prn "init-errors: " whole-edn)
-                                    (reset! cached-bad-victims-atom (-> whole-edn :bad-victims vec))
-                                    (update-download-btn-ratom))
+                                    (reset! cached-bad-victims-atom (-> whole-edn :bad-victims vec)))
           (= type :new-error) (do (prn "new-error: " whole-edn)
-                                  (swap! cached-bad-victims-atom conj (:error whole-edn))
-                                  (update-download-btn-ratom))
-          (= type :done) (do (prn "done: " whole-edn)
-                             (update-download-btn-ratom))
+                                  (swap! cached-bad-victims-atom conj (:error whole-edn)))
+          (= type :done) (do (prn "done: " whole-edn))
           ;; (= type :done-init-victims) (post-message! channel (common/marshall {:type :next-victim}))
           )))
 
@@ -68,7 +60,8 @@
               [url error-reason removal-method url-type]))))
 
 (defn current-page []
-  (let [download-fn (fn []
+  (let [disable-error-download-ratom? (reaction (zero? (count @cached-bad-victims-atom)))
+        download-fn (fn []
                       (let [content (-> @cached-bad-victims-atom csv-content csv/write-csv)
                             data-blob (js/Blob. (clj->js [content])
                                                 (clj->js {:type "text/csv"}))
