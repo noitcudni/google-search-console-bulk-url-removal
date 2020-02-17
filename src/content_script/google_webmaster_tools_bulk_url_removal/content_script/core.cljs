@@ -198,8 +198,8 @@
                                                                                :reason request-status
                                                                                :url victim
                                                                                })))
-                                       (when-not (single-node (xpath "//input[@id='bulkCsvFileInput']"))
-                                         (setup-ui chan))
+                                       ;; (when-not (single-node (xpath "//input[@id='bulkCsvFileInput']"))
+                                       ;;   (setup-ui chan)) ;; TODO: to be deprecated
                                        )))
           )
     ))
