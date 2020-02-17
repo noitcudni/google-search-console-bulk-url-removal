@@ -84,7 +84,9 @@
          :children [
                     [:div {:style {:display "none"}}
                      [:input {:id "bulkCsvFileInput" :type "file"
-                              :on-change (fn [e] (put! upload-chan e))
+                              :on-change (fn [e]
+                                           (reset! cached-bad-victims-atom nil)
+                                           (put! upload-chan e))
                               }]]
                     [recom/v-box
                      :align :start
