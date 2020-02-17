@@ -19,22 +19,6 @@
             [domina.events :refer [dispatch!]]
             ))
 
-(defn most-recent-table-grid-entry []
-  (when-let [el (-> "//table/tbody/tr"
-                    xpath
-                    nodes
-                    last
-                    (xpath "td")
-                    nodes
-                    last
-                    )]
-    (-> el
-        dommy/text
-        clojure.string/trim
-        common/normalize-url-encoding
-        )
-    ))
-
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
   "url-method: :remove-url vs :clear-cached
