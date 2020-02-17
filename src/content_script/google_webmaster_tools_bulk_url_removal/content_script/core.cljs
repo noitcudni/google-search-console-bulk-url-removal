@@ -35,23 +35,6 @@
         )
     ))
 
-;; TODO: deprecated?
-(defn update-removal-status
-  "Grab the most recent table entry and compare that against what we think the most recent url instead of
-  grabbing the url from the status message."
-  []
-  (go
-    (when-let [most-recent-url (most-recent-table-grid-entry)]
-      (prn "update-removal-status -> most-recent-url: " most-recent-url)
-      (when-let [[curr-removal-url _] (<! (current-removal-attempt))]
-        ;; TODO log it as an error
-        (when (= (common/fq-victim-url curr-removal-url) most-recent-url)
-          (<! (update-storage curr-removal-url
-                              "status" "removed"
-                              "remove-ts" (tc/to-long (t/now))
-                              )))
-        ))))
-
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
   "url-method: :remove-url vs :clear-cached
@@ -136,49 +119,6 @@
 
     ch))
 
-(def upload-chan (chan 1 (map (fn [e]
-                                (let [target (.-currentTarget e)
-                                      file (-> target .-files (aget 0))]
-                                  (set! (.-value target) "")
-                                  file
-                                  )))))
-
-;; TODO: deprecated
-(defn setup-ui [background-port]
-  (let [file-input-el (hipo/create [:div
-                                    [:input {:id "bulkCsvFileInput" :type "file"
-                                             :on-change (fn [e] (put! upload-chan e))
-                                             }]])
-        clear-db-btn-el (hipo/create [:div
-                                      [:button {:type "button"
-                                                :on-click (fn [_]
-                                                            (log "clear victims from local storage.") ;;xxx
-                                                            (clear-victims!)
-                                                            )}
-                                       "Clear local storage"]])
-        print-db-btn-el (hipo/create [:div
-                                      [:button {:type "button"
-                                                :on-click (fn [_]
-                                                            (print-victims)
-                                                            (go
-                                                              (let [bad-victims (<! (get-bad-victims))]
-                                                                (prn "bad-victims: "  bad-victims)
-                                                                ))
-                                                            )
-
-                                                }
-                                       "View local storage"
-                                       ]])
-        br-el (hipo/create [:br])
-        target-el (single-node (xpath "//div[contains(text(), 'Need to urgently remove content from Google Search?')]"))
-        ]
-
-    ;; TODO style these buttons later
-    (dommy/append! target-el file-input-el)
-    (dommy/append! target-el clear-db-btn-el)
-    (dommy/append! target-el print-db-btn-el)
-    ))
-
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
 (defn process-message! [chan message]
   (let [{:keys [type] :as whole-msg} (common/unmarshall message)]
@@ -198,8 +138,6 @@
                                                                                :reason request-status
                                                                                :url victim
                                                                                })))
-                                       ;; (when-not (single-node (xpath "//input[@id='bulkCsvFileInput']"))
-                                       ;;   (setup-ui chan)) ;; TODO: to be deprecated
                                        )))
           )
     ))
@@ -207,8 +145,6 @@
 
 ; -- custom ui components  ------------------------------------------------------------------------------------------------
 
-
-(def read-chan (chan 1 (map #(-> % .-target .-result js->clj))))
 
 
 (defn ensure-english-setting []
@@ -235,6 +171,7 @@
 
 
 
+;; TODO: to be deprecated
 (defn skip-has-already-been-removed-request
   "If the removal request has previously been made, update its status as removed"
   []
@@ -278,48 +215,12 @@
 
 (defn init! []
   (let [_ (log "CONTENT SCRIPT: init")
-        background-port (runtime/connect)
-        _ (prn "background-port: " background-port)]
-
-    ;; handle onload
-    (go-loop []
-      (let [reader (js/FileReader.)
-            file (<! upload-chan)]
-        (set! (.-onload reader) #(put! read-chan %))
-        (.readAsText reader file)
-        (recur)))
-
-    ;; handle read the file
-    (go-loop []
-      (let [file-content (<! read-chan)
-            _ (prn "file-content: " (clojure.string/trim file-content))
-            csv-data (->> (csv/read-csv (clojure.string/trim file-content))
-                          ;; trim off random whitespaces
-                          (map (fn [[url method url-type]]
-                                 (->> [(clojure.string/trim url)
-                                       (when method (clojure.string/trim method))
-                                       (when url-type (clojure.string/trim url-type))]
-                                      (filter (complement nil?))
-                                      ))))]
-        (log "about to call :init-victims")
-        (post-message! background-port (common/marshall {:type :init-victims
-                                                         :data csv-data
-                                                         }))
-        (recur)))
-
+        background-port (runtime/connect)]
     ;;;; new version
     (go
       (ensure-english-setting)
-      ;; (setup-ui background-port) ;; TODO: this is deprecated
       (common/connect-to-background-page! background-port process-message!)
-
       )
-
-    ;; (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL'")))
-
-
-    ;; "Temporarily remove URL"  ;;Tab
-    ;; "Clear cached URL" ;;Tab
 
     ;;;;; old version
     ;; Ask for the next victim if there's no failure.
@@ -327,10 +228,8 @@
     ;; that there's no outstanding failure.
     #_(go
       (<! (async/timeout 1500)) ;; wait a bit for the ui to update
-      (<! (update-removal-status))
       (<! (skip-has-already-been-removed-request))
       (ensure-english-setting)
-      (setup-ui background-port)
       (common/connect-to-background-page! background-port process-message!)
 
       (let [_ (prn "Inside go block.") ;;xxx
