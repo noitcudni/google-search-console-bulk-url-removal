@@ -1,6 +1,6 @@
 {
   "name": "WebMaster Tools - Bulk URL removal",
-  "version": "1.2",
+  "version": "1.3",
   "browser_action": {
     "default_title": "Show the popup",
     "default_popup": "popup.html"
@@ -14,7 +14,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://search.google.com/u/1/search-console/removals*"
+        "https://search.google.com/*search-console/removals*"
       ],
       "js": [
         "compiled/content-script.js"
