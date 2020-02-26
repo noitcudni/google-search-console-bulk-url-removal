@@ -1,4 +1,8 @@
 # Google Search Console Bulk Url Removal Chrome Extension
+```diff
+- Attention: this extension has been updated to work with the new Google Search Console.
+- BUG: Upon visiting the Search Console's remove tab and submitting the csv file via the green trash can, it's possible that nothing happens. If that's the case for you, please refresh the page and resubmit your csv file. 
+```
 ## Install from Google Webstore
 https://chrome.google.com/webstore/detail/webmaster-tools-bulk-url/pmnpibilljafelnghknefahibdnfeece
 
