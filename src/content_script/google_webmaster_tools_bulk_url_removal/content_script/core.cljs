@@ -19,27 +19,35 @@
             [domina.events :refer [dispatch!]]
             ))
 
-(defn sync-single-node [xpath-str]
-  (go-loop []
-    (let [n (single-node (xpath xpath-str))
-          _ (prn "sync-single-node: n :" xpath-str) ;;xxx
-          ]
-      (if (nil? n)
-        (do (<! (async/timeout 300))
-            (recur))
-       n
-       ))))
+(defn sync-single-node
+  ([xpath-str wait-time]
+   (go-loop []
+     (let [n (single-node (xpath xpath-str))
+           _ (prn "sync-single-node: n :" xpath-str) ;;xxx
+           ]
+       (if (nil? n)
+         (do (<! (async/timeout wait-time))
+             (recur))
+         n
+         ))))
+  ([xpath-str]
+   (sync-single-node xpath-str 300)
+   ))
 
-(defn sync-nodes [xpath-str]
-  (go-loop []
-    (let [n-lst (nodes (xpath xpath-str))
-          _ (prn "sycn-nodes: n-lst : " xpath-str) ;;xxx
-          ]
-      (if (empty? n-lst)
-        (do <! (async/timeout 300)
-            (recur))
-        n-lst
-        ))))
+(defn sync-nodes
+  ([xpath-str wait-time]
+   (go-loop []
+     (let [n-lst (nodes (xpath xpath-str))
+           _ (prn "sycn-nodes: n-lst : " xpath-str) ;;xxx
+           ]
+       (if (empty? n-lst)
+         (do <! (async/timeout wait-time)
+             (recur))
+         n-lst
+         ))))
+  ([xpath-str]
+   (sync-nodes xpath-str 300)
+   ))
 
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
@@ -65,15 +73,13 @@
             (do #_(.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
                 (.click (<! (sync-single-node "//span[contains(text(), 'New Request')]")))
 
-                (<! (async/timeout 700)) ;; wait for the modal dialog to show
+                (<! (async/timeout 100)) ;; wait for the modal dialog to show
 
                 ;; Who cares? Click on all the radiobuttons
-                (doseq [;;n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))
-                        n (<! (sync-nodes (str "//label[contains(text(), '" url-type-str "')]/div")))]
+                (doseq [n (<! (sync-nodes (str "//label[contains(text(), '" url-type-str "')]/div") 700))]
                   (.click n))
 
-                (doseq [;;n (nodes (xpath "//input[@placeholder='Enter URL']"))
-                        n (<! (sync-nodes "//input[@placeholder='Enter URL']"))]
+                (doseq [n (<! (sync-nodes "//input[@placeholder='Enter URL']"))]
                   (do
                     (.click n)
                     (domina/set-value! n url)))
@@ -94,9 +100,12 @@
                             (recur (single-node (xpath "//span[contains(text(), 'Next')]/../..")) (inc iter-cnt))
                             )
                           (= url-method "clear-cached")
-                          (.click (<! (sync-single-node "//span[contains(text(), 'Clear cached URL')]")))
-                          ;; :else
+                          (do (.click (<! (sync-single-node "//span[contains(text(), 'Clear cached URL')]")))
+                              (<! (async/timeout (* iter-cnt 300)))
+                              (recur (single-node (xpath "//span[contains(text(), 'Next')]/../..")) (inc iter-cnt)))
+                          :else
                           ;; trigger skip-error
+                          (prn "Need to skip-error dude to url-method : " url-method) ;;xxx
                           )
                     ))
 
