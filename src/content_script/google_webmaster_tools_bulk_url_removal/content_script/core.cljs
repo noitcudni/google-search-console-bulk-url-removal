@@ -14,10 +14,32 @@
             [cljs-time.core :as t]
             [cljs-time.coerce :as tc]
             [cemerick.url :refer [url]]
-            [domina :refer [single-node nodes]]
+            [domina :refer [single-node nodes style styles]]
             [domina.xpath :refer [xpath]]
             [domina.events :refer [dispatch!]]
             ))
+
+(defn sync-single-node [xpath-str]
+  (go-loop []
+    (let [n (single-node (xpath xpath-str))
+          _ (prn "sync-single-node: n :" xpath-str) ;;xxx
+          ]
+      (if (nil? n)
+        (do (<! (async/timeout 300))
+            (recur))
+       n
+       ))))
+
+(defn sync-nodes [xpath-str]
+  (go-loop []
+    (let [n-lst (nodes (xpath xpath-str))
+          _ (prn "sycn-nodes: n-lst : " xpath-str) ;;xxx
+          ]
+      (if (empty? n-lst)
+        (do <! (async/timeout 300)
+            (recur))
+        n-lst
+        ))))
 
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
@@ -40,33 +62,45 @@
             (and (not= url-type "url-only") (not= url-type "prefix"))
             (>! ch :erroneous-url-type)
             :else
-            (do (.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
+            (do #_(.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
+                (.click (<! (sync-single-node "//span[contains(text(), 'New Request')]")))
 
                 (<! (async/timeout 700)) ;; wait for the modal dialog to show
+
                 ;; Who cares? Click on all the radiobuttons
-                (doseq [n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))]
+                (doseq [;;n (nodes (xpath (str "//label[contains(text(), '" url-type-str "')]/div")))
+                        n (<! (sync-nodes (str "//label[contains(text(), '" url-type-str "')]/div")))]
                   (.click n))
 
-                (doseq [n (nodes (xpath "//input[@placeholder='Enter URL']"))]
+                (doseq [;;n (nodes (xpath "//input[@placeholder='Enter URL']"))
+                        n (<! (sync-nodes "//input[@placeholder='Enter URL']"))]
                   (do
                     (.click n)
                     (domina/set-value! n url)))
 
                 ;; NOTE: Need to click one of the tabs to get next to show
-                (cond (= url-method "remove-url")
-                      (do
-                        (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
-                        (<! (async/timeout 700))
-                        (.click (single-node (xpath "//span[contains(text(), 'Temporarily remove URL')]"))))
-                      (= url-method "clear-cached")
-                      (.click (single-node (xpath "//span[contains(text(), 'Clear cached URL')]")))
-                      ;; :else
-                      ;; trigger skip-error
-                      )
+                ;; Increment the wait time in between clicking on the `Clear cached URL` and the `Temporarily remove URL` tabs.
+                ;; Don't stop until the next button is clickable
+                (loop [next-node (single-node (xpath "//span[contains(text(), 'Next')]/../.."))
+                       iter-cnt 1]
+                  (when (= (-> next-node
+                               js/window.getComputedStyle
+                               (aget "backgroundColor")) "rgba(0, 0, 0, 0.12)")
+                    (cond (= url-method "remove-url")
+                          (do
+                            (.click (<! (sync-single-node "//span[contains(text(), 'Clear cached URL')]")))
+                            (<! (async/timeout (* iter-cnt 300)))
+                            (.click (<! (sync-single-node "//span[contains(text(), 'Temporarily remove URL')]")))
+                            (recur (single-node (xpath "//span[contains(text(), 'Next')]/../..")) (inc iter-cnt))
+                            )
+                          (= url-method "clear-cached")
+                          (.click (<! (sync-single-node "//span[contains(text(), 'Clear cached URL')]")))
+                          ;; :else
+                          ;; trigger skip-error
+                          )
+                    ))
 
-
-                (<! (async/timeout 700))
-                (.click (single-node (xpath "//span[contains(text(), 'Next')]")))
+                (.click (<! (sync-single-node "//span[contains(text(), 'Next')]")))
                 (<! (async/timeout 1400))
 
                 ;; Check for "URL not in property"
@@ -200,29 +234,12 @@
 
 (defn init! []
   (let [_ (log "CONTENT SCRIPT: init")
-        background-port (runtime/connect)]
-    ;;;; new version
+        background-port (runtime/connect)
+        _ (prn "single-node: "(single-node (xpath "//span[contains(text(), 'Hello world')]"))) ;;xxx
+        _ (prn "nodes: " (nodes (xpath "//label[contains(text(), 'hello')]/div"))) ;;xxx
+        ]
     (go
       (ensure-english-setting)
       (common/connect-to-background-page! background-port process-message!)
       )
-
-    ;;;;; old version
-    ;; Ask for the next victim if there's no failure.
-    ;; If current-removal-attempt returns nil, that means
-    ;; that there's no outstanding failure.
-    #_(go
-      (<! (async/timeout 1500)) ;; wait a bit for the ui to update
-      (<! (skip-has-already-been-removed-request))
-      (ensure-english-setting)
-      (common/connect-to-background-page! background-port process-message!)
-
-      (let [_ (prn "Inside go block.") ;;xxx
-            curr-removal (<! (current-removal-attempt))
-            _ (prn "curr-removal: " curr-removal) ;;xxx
-            outstanding-failed-attempt? (->> curr-removal nil? not)]
-        (if outstanding-failed-attempt?
-          (setup-continue-ui background-port) ;; pause since we have an outstanding failure.
-          (post-message! background-port (common/marshall {:type :next-victim}))
-          )))
     ))
