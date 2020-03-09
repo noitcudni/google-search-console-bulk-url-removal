@@ -19,32 +19,57 @@
             [domina.events :refer [dispatch!]]
             ))
 
-(defn sync-single-node
-  ([xpath-str wait-time]
+(defn alt-sync-single-node
+  "This is unfortunate. alts! doens't close other channels"
+  ([wait-time & xpath-strs]
    (go-loop []
-     (let [n (single-node (xpath xpath-str))
-           _ (prn "sync-single-node: n :" xpath-str) ;;xxx
-           ]
+     (let [n (->> xpath-strs
+                  (map (fn [xpath-str]
+                         (single-node (xpath xpath-str))
+                         ))
+                  (filter #(some? %))
+                  first)]
        (if (nil? n)
          (do (<! (async/timeout wait-time))
              (recur))
-         n
-         ))))
+         n)
+       ))))
+
+(defn sync-single-node
+  ([xpath-str wait-time]
+   (let [ch (chan)]
+    (go-loop []
+      (let [n (single-node (xpath xpath-str))
+            _ (prn "sync-single-node: n :" xpath-str) ;;xxx
+            ]
+        (if (nil? n)
+          (do (<! (async/timeout wait-time))
+              (recur))
+          (do
+            (prn "returning: " xpath-str) ;;xxx
+            (>! ch n))
+          )))
+    ch
+    ))
   ([xpath-str]
    (sync-single-node xpath-str 300)
    ))
 
 (defn sync-nodes
   ([xpath-str wait-time]
-   (go-loop []
-     (let [n-lst (nodes (xpath xpath-str))
-           _ (prn "sycn-nodes: n-lst : " xpath-str) ;;xxx
-           ]
-       (if (empty? n-lst)
-         (do <! (async/timeout wait-time)
-             (recur))
-         n-lst
-         ))))
+   (let [ch (chan)]
+     (go-loop []
+       (let [n-lst (nodes (xpath xpath-str))
+             _ (prn "sycn-nodes: n-lst : " xpath-str) ;;xxx
+             ]
+         (if (empty? n-lst)
+           (do <! (async/timeout wait-time)
+               (recur))
+           (do n-lst
+               (>! ch n-lst))
+           )))
+     ch
+     ))
   ([xpath-str]
    (sync-nodes xpath-str 300)
    ))
@@ -110,7 +135,20 @@
                     ))
 
                 (.click (<! (sync-single-node "//span[contains(text(), 'Next')]")))
-                (<! (async/timeout 1400))
+
+                ;; (<! (async/timeout 1400))
+                ;; (<! (sync-single-node "//div[contains(text(), 'Remove URL?')]" 1000))
+                (<! (alt-sync-single-node 1000
+                                          "//div[contains(text(), 'URL not in property')]"
+                                          "//div[contains(text(), 'Clear cached URL?')]"
+                                          "//div[contains(text(), 'Remove URL?')]"))
+
+                ;; (let [[dialog ch] (alts! (sync-single-node "//div[contains(text(), 'URL not in property')]" 1000)
+                ;;                          (sync-single-node "//div[contains(text(), 'Clear cached URL?')]" 1000)
+                ;;                          (sync-single-node "//div[contains(text(), 'Remove URL?')]" 1000))]
+                ;;   (prn "dialog : " dialog)
+                ;;   )
+
 
                 ;; Check for "URL not in property"
                 (if-let [not-in-properity-node (single-node (xpath "//div[contains(text(), 'URL not in property')]"))]
