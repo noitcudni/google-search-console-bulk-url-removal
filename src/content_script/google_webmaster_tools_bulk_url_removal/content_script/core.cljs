@@ -98,7 +98,7 @@
             (do #_(.click (single-node (xpath "//span[contains(text(), 'New Request')]")))
                 (.click (<! (sync-single-node "//span[contains(text(), 'New Request')]")))
 
-                (<! (async/timeout 100)) ;; wait for the modal dialog to show
+                (<! (sync-single-node "//div[@aria-label='New Request']")) ;; wait for the modal dialog to show
 
                 ;; Who cares? Click on all the radiobuttons
                 (doseq [n (<! (sync-nodes (str "//label[contains(text(), '" url-type-str "')]/div") 700))]
