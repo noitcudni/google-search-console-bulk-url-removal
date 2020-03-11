@@ -104,20 +104,24 @@
                 ;; Wait for the next dialog
                 (<! (sync-single-node "//div[contains(text(), 'URL not in property')]"
                                       "//div[contains(text(), 'Clear cached URL?')]"
-                                      "//div[contains(text(), 'Remove URL?')]"))
+                                      "//div[contains(text(), 'Remove URL?')]"
+                                      "//div[contains(text(), 'Remove all URLs with this prefix?')]"))
 
-                ;; TODO refactor below.
-
+                (prn "Yay, the next dialog is here !!!") ;;xxx
                 ;; Check for "URL not in property"
                 (if-let [not-in-properity-node (single-node (xpath "//div[contains(text(), 'URL not in property')]"))]
                   ;; Oops, not in the right domain
                   (do
-                    (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
-                    (<! (async/timeout 700))
-                    (.click (single-node (xpath "//span[contains(text(), 'cancel')]")))
+                    (.click (<! (sync-single-node "//span[contains(text(), 'Close')]")))
+                    (.click (<! (sync-single-node "//span[contains(text(), 'cancel')]")))
                     (>! ch :not-in-property))
 
-                  (do (.click (single-node (xpath "//span[contains(text(), 'Submit request')]")))
+                  (do
+                    (prn "about to click on submit request")
+                    (.click (<! (sync-single-node "//span[contains(text(), 'Submit request')]")))
+                      ;; TODO Can we refactor and get rid of this timeout?
+                      ;; Instead relying on time out we can try to see if the first entry in the table matches the input
+                      ;; $x("//table//*[contains(text(), 'Requested')]/../../../../tbody/tr")
                       (<! (async/timeout 1400))
                       ;; NOTE: may encounter
                       ;; 1. Duplicate request
@@ -125,13 +129,12 @@
                       ;; These show up as a modal dialog. Need to check for them
                       ;; Check for post submit modal dialog
                       (let [dup-req-node (single-node (xpath "//div[contains(text(), 'Duplicate request')]"))
-                            malform-url-node (single-node (xpath "//div[contains(text(), 'Malformed URL')]"))
-                            _ (<! (async/timeout 700))]
+                            malform-url-node (single-node (xpath "//div[contains(text(), 'Malformed URL')]"))]
                         (cond (not (nil? dup-req-node)) (do
-                                                          (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
+                                                          (.click (<! (sync-single-node "//span[contains(text(), 'Close')]")))
                                                           (>! ch :duplicate-request))
                               (not (nil? malform-url-node)) (do
-                                                              (.click (single-node (xpath "//span[contains(text(), 'Close')]")))
+                                                              (.click (<! (sync-single-node "//span[contains(text(), 'Close')]")))
                                                               (>! ch :malform-url))
                               :else (>! ch :success)
                               )
