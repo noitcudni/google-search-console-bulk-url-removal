@@ -38,6 +38,11 @@
 (def sync-single-node (partial sync-node-helper single-node))
 (def sync-nodes (partial sync-node-helper nodes))
 
+(defn get-most-recent-removal []
+  (-> (xpath "((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]")
+      single-node
+      dommy/text))
+
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
   "url-method: :remove-url vs :clear-cached
@@ -51,8 +56,10 @@
   [url url-method url-type]
   (let [ch (chan)
         url-type-str (cond (= url-type "prefix") "Remove all URLs with this prefix"
-                           (= url-type "url-only") "Remove this URL only"
-                           )]
+                           (= url-type "url-only") "Remove this URL only")
+        most-recent-removal (get-most-recent-removal)
+        _ (prn "most-recent-removal: " most-recent-removal)
+        ]
     (go
       (cond (and (not= url-method "remove-url") (not= url-method "clear-cached"))
             (>! ch :erroneous-url-method)
@@ -121,7 +128,8 @@
                     (.click (<! (sync-single-node "//span[contains(text(), 'Submit request')]")))
                       ;; TODO Can we refactor and get rid of this timeout?
                       ;; Instead relying on time out we can try to see if the first entry in the table matches the input
-                      ;; $x("//table//*[contains(text(), 'Requested')]/../../../../tbody/tr")
+                      ;; $x("(//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr")
+                      ;; $x("((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]") <--- get to the first entry
                       (<! (async/timeout 1400))
                       ;; NOTE: may encounter
                       ;; 1. Duplicate request
