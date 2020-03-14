@@ -39,9 +39,21 @@
 (def sync-nodes (partial sync-node-helper nodes))
 
 (defn get-most-recent-removal []
+  ;; $x("(//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr")
+  ;; $x("((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]") <--- get to the first entry
   (-> (xpath "((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]")
       single-node
       dommy/text))
+
+(defn sync-success? [most-recent-removal-entry]
+  ;; try maximum of 4 loops
+  (go-loop [cnt 0]
+    (let [current-removal-entry (get-most-recent-removal)]
+      (if (or (not= most-recent-removal-entry current-removal-entry) (>= cnt 8))
+        :successful-removal
+        (do (<! (async/timeout 500))
+            (recur (inc cnt))))
+      )))
 
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
@@ -123,34 +135,35 @@
                     (.click (<! (sync-single-node "//span[contains(text(), 'cancel')]")))
                     (>! ch :not-in-property))
 
+                  ;; NOTE: may encounter
+                  ;; 1. Duplicate request
+                  ;; 2. Malform URL
+                  ;; These show up as a modal dialog. Need to check for them
+                  ;; Check for post submit modal dialog
                   (do
                     (prn "about to click on submit request")
                     (.click (<! (sync-single-node "//span[contains(text(), 'Submit request')]")))
-                      ;; TODO Can we refactor and get rid of this timeout?
-                      ;; Instead relying on time out we can try to see if the first entry in the table matches the input
-                      ;; $x("(//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr")
-                      ;; $x("((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]") <--- get to the first entry
-                      (<! (async/timeout 1400))
-                      ;; NOTE: may encounter
-                      ;; 1. Duplicate request
-                      ;; 2. Malform URL
-                      ;; These show up as a modal dialog. Need to check for them
-                      ;; Check for post submit modal dialog
-                      (let [dup-req-node (single-node (xpath "//div[contains(text(), 'Duplicate request')]"))
-                            malform-url-node (single-node (xpath "//div[contains(text(), 'Malformed URL')]"))]
-                        (cond (not (nil? dup-req-node)) (do
-                                                          (.click (<! (sync-single-node "//span[contains(text(), 'Close')]")))
-                                                          (>! ch :duplicate-request))
-                              (not (nil? malform-url-node)) (do
-                                                              (.click (<! (sync-single-node "//span[contains(text(), 'Close')]")))
-                                                              (>! ch :malform-url))
-                              :else (>! ch :success)
-                              )
-                        ))))
 
-
+                    (let [err-ch (sync-single-node  "//div[contains(text(), 'Duplicate request')]"
+                                                    "//div[contains(text(), 'Malformed URL')]")
+                          success-ch (sync-success? most-recent-removal)
+                          status (<! (async/merge [err-ch success-ch]))
+                          _ (async/close! err-ch)
+                          _ (async/close! success-ch)]
+                      (if (= :successful-removal status)
+                        (>! ch :success)
+                        (let [dup-req-node (single-node (xpath "//div[contains(text(), 'Duplicate request')]"))
+                              malform-url-node (single-node (xpath "//div[contains(text(), 'Malformed URL')]"))]
+                          (cond (not (nil? dup-req-node)) (do
+                                                            (.click (<! (sync-single-node "//span[contains(text(), 'Close')]")))
+                                                            (>! ch :duplicate-request))
+                                (not (nil? malform-url-node)) (do
+                                                                (.click (<! (sync-single-node "//span[contains(text(), 'Close')]")))
+                                                                (>! ch :malform-url))
+                                ))
+                        ))
+                    )))
             ))
-
     ch))
 
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
