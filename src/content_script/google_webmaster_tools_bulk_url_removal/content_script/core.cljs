@@ -191,72 +191,12 @@
     ))
 
 
-; -- custom ui components  ------------------------------------------------------------------------------------------------
-
-
-
 (defn ensure-english-setting []
   (let [url-parts (url (.. js/window -location -href))]
     (when-not (= "en" (get-in url-parts [:query "hl"]))
       (js/alert "Bulk URL Removal extension works properly only in English. Press OK to set the language to English.")
       (set! (.. js/window -location -href) (str (assoc-in url-parts [:query "hl"] "en")))
       )))
-
-
-
-;; TODO: to be deprecated?
-(defn setup-continue-ui [background-port]
-  (let [continue-button-el (hipo/create [:div [:button {:type "button"
-                                                        :on-click (fn []
-                                                                    (post-message! background-port (common/marshall {:type :next-victim}))
-                                                                    )}
-                                               "Continue"
-                                               ]])]
-    (dommy/append! (sel1 :#create-removal_button) continue-button-el)
-    ))
-
-
-
-
-
-;; TODO: to be deprecated
-(defn skip-has-already-been-removed-request
-  "If the removal request has previously been made, update its status as removed"
-  []
-  ;; <span class="status-message-text>"
-  ;; A removal request for this URL has already been made.
-  ;; TODO: work in progress
-  (go
-    (if-let [r (when-let [el (sel1 "span.status-message-text")]
-                 (when-let [[curr-removal-url _] (<! (current-removal-attempt))]
-                   (when (= (-> el
-                                dommy/text
-                                clojure.string/trim) "A removal request for this URL has already been made.")
-                     ;; NOTE: The removal timestamp is not accurate.
-                     ;; It has been removed previously. Just need to update it so that it'll move along
-                     (<! (update-storage curr-removal-url
-                                         "status" "removed"
-                                         "remove-ts" (tc/to-long (t/now))
-                                         ))
-                     )))]
-      r
-      "DO Nothing" ;; can't put nil on a channel
-      )))
-
-
-
-;; has to be used inside a go block
-#_(defmacro with-wait [[action [_ [_ p] :as single-node-sexp] ]]
-  `(let [path# ~p]
-     (loop [n# (~'single-node (~'xpath path#))]
-       (if (nil? n#)
-         (do
-           (<! (cljs.core.async/timeout 100))
-           (recur (~'single-node (~'xpath path#))))
-         (do
-           (~'prn "n#: ")
-           (.click n#))
-         ))))
 
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
