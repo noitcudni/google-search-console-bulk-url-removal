@@ -41,9 +41,8 @@
 (defn get-most-recent-removal []
   ;; $x("(//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr")
   ;; $x("((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]") <--- get to the first entry
-  (-> (xpath "((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]")
-      single-node
-      dommy/text))
+  (when-let [n (-> "((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]" xpath single-node)]
+    (dommy/text n)))
 
 (defn sync-success? [most-recent-removal-entry]
   ;; try maximum of 4 loops
