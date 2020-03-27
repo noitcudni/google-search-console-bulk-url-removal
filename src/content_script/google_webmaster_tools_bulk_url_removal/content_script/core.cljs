@@ -48,7 +48,7 @@
   ;; try maximum of 4 loops
   (go-loop [cnt 0]
     (let [current-removal-entry (get-most-recent-removal)]
-      (if (or (not= most-recent-removal-entry current-removal-entry) (>= cnt 8))
+      (if (or (not= most-recent-removal-entry current-removal-entry) (>= cnt 20))
         :successful-removal
         (do (<! (async/timeout 500))
             (recur (inc cnt))))
