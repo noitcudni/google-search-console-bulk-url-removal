@@ -123,7 +123,8 @@
                 (<! (sync-single-node "//div[contains(text(), 'URL not in property')]"
                                       "//div[contains(text(), 'Clear cached URL?')]"
                                       "//div[contains(text(), 'Remove URL?')]"
-                                      "//div[contains(text(), 'Remove all URLs with this prefix?')]"))
+                                      "//div[contains(text(), 'Remove all URLs with this prefix?')]"
+                                      "//div[contains(text(), 'Remove entire site?')]"))
 
                 (prn "Yay, the next dialog is here !!!") ;;xxx
                 ;; Check for "URL not in property"
