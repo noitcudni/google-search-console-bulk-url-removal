@@ -29,12 +29,14 @@
   ],
   "background": {
     "page": "background.html",
-    "persistent": false
+    "persistent": true
   },
   "permissions": [
     "storage",
     "downloads",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "webRequest",
+    "https://search.google.com/*search-console*"
   ],
   "manifest_version": 2
 }

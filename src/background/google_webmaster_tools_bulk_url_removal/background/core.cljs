@@ -8,6 +8,7 @@
             [chromex.protocols.chrome-port :refer [on-disconnect! post-message! get-sender]]
             [chromex.ext.tabs :as tabs]
             [chromex.ext.runtime :as runtime]
+            [chromex.ext.web-request :as web-request]
             [chromex.ext.windows :as cwin :refer-macros [create]]
             [cljs-time.core :as tt]
             [cljs-time.coerce :as tc]
@@ -94,7 +95,7 @@
                                        ;; clean up errors from the previous run
                                        (clear-victims!)
                                        (set-badge-text #js{"text" ""})
-                                       (store-victims! whole-edn)
+                                       (<! (store-victims! whole-edn))
                                        (post-message! (get-content-client) (common/marshall {:type :done-init-victims})))
               (= type :next-victim) (<! (fetch-next-victim client))
               (= type :success) (go
@@ -172,7 +173,9 @@
     (case event-id
       ::runtime/on-connect (apply handle-client-connection! event-args)
       ;; ::tabs/on-created (tell-clients-about-new-tab!)
-      nil)))
+      (do
+        (prn event-id)
+        nil))))
 
 (defn run-chrome-event-loop! [chrome-event-channel]
   (log "BACKGROUND: starting main event loop...")
@@ -186,6 +189,11 @@
   (let [chrome-event-channel (make-chrome-event-channel (chan))]
     ;; (tabs/tap-all-events chrome-event-channel)
     (runtime/tap-all-events chrome-event-channel)
+    ;; (prn ">>>> web-request : "  web-request/tap-on-completed-events)
+    (web-request/tap-on-completed-events chrome-event-channel
+                                         (clj->js {"urls" ["<all_urls>"]})
+                                         )
+    ;; (web-request/tap-all-events chrome-event-channel)
     (run-chrome-event-loop! chrome-event-channel)))
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
