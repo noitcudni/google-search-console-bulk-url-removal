@@ -100,7 +100,9 @@
                                            first)
             _ (when-not (nil? victim-entry) (<! (update-storage victim-url "status" "removing")))
             victim (<! (current-removal-attempt))]
-        (>! ch victim)
+        (if (nil? victim)
+          (close! ch)
+          (>! ch victim))
         ))
     ch))
 
@@ -113,7 +115,9 @@
                      (<! (fresh-new-victim))
                      victim)
             ]
-        (>! ch victim)
+        (if (nil? victim)
+          (close! ch)
+          (>! ch victim))
         ))
     ch))
 

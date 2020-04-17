@@ -19,6 +19,9 @@
             [domina.events :refer [dispatch!]]
             ))
 
+(def xhr-input-chan (async/chan))
+(def xhr-pub (async/pub xhr-input-chan :xhr-status))
+
 (defn sync-node-helper
   "This is unfortunate. alts! doens't close other channels"
   [dom-fn & xpath-strs]
@@ -70,7 +73,8 @@
                            (= url-type "url-only") "Remove this URL only")
         most-recent-removal (get-most-recent-removal)
         _ (prn "most-recent-removal: " most-recent-removal)
-        ]
+        xhr-output-chan (chan)
+        _ (async/sub xhr-pub :successful-removal xhr-output-chan)]
     (go
       (cond (and (not= url-method "remove-url") (not= url-method "clear-cached"))
             (>! ch :erroneous-url-method)
@@ -146,11 +150,14 @@
 
                     (let [err-ch (sync-single-node  "//div[contains(text(), 'Duplicate request')]"
                                                     "//div[contains(text(), 'Malformed URL')]")
-                          success-ch (sync-success? most-recent-removal)
-                          status (<! (async/merge [err-ch success-ch]))
+                          ;; success-ch (sync-success? most-recent-removal)
+                          ;; status (<! (async/merge [err-ch success-ch]))
+                          status (<! (async/merge [err-ch xhr-output-chan]))
                           _ (async/close! err-ch)
-                          _ (async/close! success-ch)]
-                      (if (= :successful-removal status)
+                          _ (async/close! xhr-output-chan)
+                          ;; _ (async/close! success-ch)
+                          ]
+                      (if (= {:xhr-status :successful-removal} status)
                         (>! ch :success)
                         (let [dup-req-node (single-node (xpath "//div[contains(text(), 'Duplicate request')]"))
                               malform-url-node (single-node (xpath "//div[contains(text(), 'Malformed URL')]"))]
@@ -165,6 +172,7 @@
                     )))
             ))
     ch))
+
 
 ; -- a message loop ---------------------------------------------------------------------------------------------------------
 (defn process-message! [chan message]
@@ -185,7 +193,9 @@
                                                                                :reason request-status
                                                                                :url victim
                                                                                })))
-                                       )))
+                                        )))
+          (= type :xhr-completed) (do (prn "received xhr-completed")
+                                      (go (>! xhr-input-chan {:xhr-status :successful-removal})))
           (= type :done) (js/alert "DONE with bulk url removals!")
           )
     ))

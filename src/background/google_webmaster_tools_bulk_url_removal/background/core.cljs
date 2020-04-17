@@ -2,6 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [goog.string :as gstring]
             [goog.string.format]
+            [clojure.string :as string]
             [cljs.core.async :refer [<! chan]]
             [chromex.logging :refer-macros [log info warn error group group-end]]
             [chromex.chrome-event-channel :refer [make-chrome-event-channel]]
@@ -21,6 +22,7 @@
 
 (def ^:export github-source-url "This project is from https://github.com/noitcudni/google-webmaster-tools-bulk-url-removal")
 (def clients (atom []))
+(def my-status (atom :done))
 
 ; -- clients manipulation ---------------------------------------------------------------------------------------------------
 
@@ -69,6 +71,7 @@
           _ (prn "BACKGROUND: victim-entry: " victim-entry)]
       (cond (and (= victim-url "poison-pill") (= (get victim-entry "removal-method") *DONE-FLAG*))
             (do (prn "DONE!!!")
+                (reset! my-status :done)
                 (post-message! (get-popup-client)
                                (common/marshall {:type :done}))
                 (post-message! client
@@ -95,6 +98,7 @@
                                        ;; clean up errors from the previous run
                                        (clear-victims!)
                                        (set-badge-text #js{"text" ""})
+                                       (reset! my-status :running)
                                        (<! (store-victims! whole-edn))
                                        (post-message! (get-content-client) (common/marshall {:type :done-init-victims})))
               (= type :next-victim) (<! (fetch-next-victim client))
@@ -164,17 +168,25 @@
 ;;     (post-message! client "a new tab was created")))
 
 ; -- main event loop --------------------------------------------------------------------------------------------------------
-
 (defn process-chrome-event [event-num event]
   (log (gstring/format "BACKGROUND: got chrome event (%05d)" event-num) event)
-  (let [[event-id event-args] event
-        _ (prn "event-id: " event-id) ;;xxx
-        ]
+  (let [[event-id event-args] event]
     (case event-id
       ::runtime/on-connect (apply handle-client-connection! event-args)
       ;; ::tabs/on-created (tell-clients-about-new-tab!)
+
+      ::web-request/on-completed (when (and (->> event-args
+                                                 (map js->clj)
+                                                 (filter #(and (= (get % "type") "xmlhttprequest")
+                                                               (string/includes? (get % "url") "SearchConsoleAggReportUi/data/batchexecute")))
+                                                 empty?
+                                                 not)
+                                            (= @my-status :running))
+                                   (prn "about to send out a message to content-client")
+                                   ;; (prn "my-status: " @my-status)
+                                   (post-message! (get-content-client) (common/marshall {:type :xhr-completed})))
       (do
-        (prn event-id)
+        (prn "default: " event-id)
         nil))))
 
 (defn run-chrome-event-loop! [chrome-event-channel]
@@ -189,11 +201,8 @@
   (let [chrome-event-channel (make-chrome-event-channel (chan))]
     ;; (tabs/tap-all-events chrome-event-channel)
     (runtime/tap-all-events chrome-event-channel)
-    ;; (prn ">>>> web-request : "  web-request/tap-on-completed-events)
     (web-request/tap-on-completed-events chrome-event-channel
-                                         (clj->js {"urls" ["<all_urls>"]})
-                                         )
-    ;; (web-request/tap-all-events chrome-event-channel)
+                                         (clj->js {"urls" ["<all_urls>"]}))
     (run-chrome-event-loop! chrome-event-channel)))
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
