@@ -57,6 +57,22 @@
             (recur (inc cnt))))
       )))
 
+
+(defn scrape-xhr-data! []
+  "grab the xhr injected data and clean up the extra dom"
+  []
+  (go
+    (let [injected-dom (<! (sync-single-node "//div[@id='__interceptedData']"))
+          r (dommy/text injected-dom)]
+      (.remove injected-dom)
+      r
+      )))
+
+(defn cleanup-xhr-data! []
+  (go
+    (doseq [n (<! (sync-nodes  "//div[@id='__interceptedData']"))]
+      (.remove n))))
+
 ;; default to Temporarily remove and Remove this URL only
 (defn exec-new-removal-request
   "url-method: :remove-url vs :clear-cached
@@ -147,19 +163,13 @@
                   (do
                     (prn "about to click on submit request")
                     (.click (<! (sync-single-node "//span[contains(text(), 'Submit request')]")))
-
-                    (let [err-ch (sync-single-node  "//div[contains(text(), 'Duplicate request')]"
-                                                    "//div[contains(text(), 'Malformed URL')]")
-                          ;; success-ch (sync-success? most-recent-removal)
-                          ;; status (<! (async/merge [err-ch success-ch]))
-                          status (<! (async/merge [err-ch xhr-output-chan]))
-                          _ (async/close! err-ch)
-                          _ (async/close! xhr-output-chan)
-                          ;; _ (async/close! success-ch)
-                          ]
-                      (if (= {:xhr-status :successful-removal} status)
-                        (>! ch :success)
-                        (let [dup-req-node (single-node (xpath "//div[contains(text(), 'Duplicate request')]"))
+                    (let [xhr-data (<! (scrape-xhr-data!))
+                          _ (prn "xhr-data: " xhr-data)]
+                      (if (clojure.string/includes? xhr-data "SubmitRemovalError")
+                        (let [err-ch (sync-single-node  "//div[contains(text(), 'Duplicate request')]"
+                                                        "//div[contains(text(), 'Malformed URL')]")
+                              _ (<! err-ch)
+                              dup-req-node (single-node (xpath "//div[contains(text(), 'Duplicate request')]"))
                               malform-url-node (single-node (xpath "//div[contains(text(), 'Malformed URL')]"))]
                           (cond (not (nil? dup-req-node)) (do
                                                             (.click (<! (sync-single-node "//span[contains(text(), 'Close')]")))
@@ -168,6 +178,7 @@
                                                                 (.click (<! (sync-single-node "//span[contains(text(), 'Close')]")))
                                                                 (>! ch :malform-url))
                                 ))
+                        (>! ch :success)
                         ))
                     )))
             ))
@@ -178,7 +189,11 @@
 (defn process-message! [chan message]
   (let [{:keys [type] :as whole-msg} (common/unmarshall message)]
     (prn "CONTENT SCRIPT: process-message!: " whole-msg)
-    (cond (= type :done-init-victims) (post-message! chan (common/marshall {:type :next-victim}))
+    (cond (= type :done-init-victims) (do
+                                        (go
+                                          ;; clean up the injected xhr data
+                                          (<! (cleanup-xhr-data!))
+                                          (post-message! chan (common/marshall {:type :next-victim}))))
           (= type :remove-url) (do (prn "handling :remove-url")
                                    (go
                                      (let [{:keys [victim removal-method url-type]} whole-msg
@@ -210,6 +225,7 @@
 
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------
+
 
 (defn init! []
   (let [_ (log "CONTENT SCRIPT: init")

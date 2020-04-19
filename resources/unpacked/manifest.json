@@ -19,12 +19,13 @@
   "content_scripts": [
     {
       "matches": [
-        "https://search.google.com/*search-console/removals*"
+        "https://search.google.com/*search-console*"
       ],
       "js": [
+        "inject.js",
         "compiled/content-script/main.js"
       ],
-      "run_at": "document_end"
+      "run_at": "document_start"
     }
   ],
   "background": {
