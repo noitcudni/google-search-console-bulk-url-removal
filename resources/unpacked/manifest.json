@@ -35,9 +35,7 @@
   "permissions": [
     "storage",
     "downloads",
-    "unlimitedStorage",
-    "webRequest",
-    "https://search.google.com/*search-console*"
+    "unlimitedStorage"
   ],
   "manifest_version": 2
 }

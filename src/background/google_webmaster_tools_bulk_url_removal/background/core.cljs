@@ -174,17 +174,6 @@
     (case event-id
       ::runtime/on-connect (apply handle-client-connection! event-args)
       ;; ::tabs/on-created (tell-clients-about-new-tab!)
-
-      ::web-request/on-completed (when (and (->> event-args
-                                                 (map js->clj)
-                                                 (filter #(and (= (get % "type") "xmlhttprequest")
-                                                               (string/includes? (get % "url") "SearchConsoleAggReportUi/data/batchexecute")))
-                                                 empty?
-                                                 not)
-                                            (= @my-status :running))
-                                   (prn "about to send out a message to content-client")
-                                   ;; (prn "my-status: " @my-status)
-                                   (post-message! (get-content-client) (common/marshall {:type :xhr-completed})))
       (do
         (prn "default: " event-id)
         nil))))
@@ -201,8 +190,6 @@
   (let [chrome-event-channel (make-chrome-event-channel (chan))]
     ;; (tabs/tap-all-events chrome-event-channel)
     (runtime/tap-all-events chrome-event-channel)
-    (web-request/tap-on-completed-events chrome-event-channel
-                                         (clj->js {"urls" ["<all_urls>"]}))
     (run-chrome-event-loop! chrome-event-channel)))
 
 ; -- main entry point -------------------------------------------------------------------------------------------------------

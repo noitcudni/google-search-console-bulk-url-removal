@@ -14,8 +14,7 @@ function inject(){
     }
     XHR.send = function() {
         this.addEventListener('load', function() {
-            if (this.url.includes("SearchConsoleAggReportUi/data/batchexecute") && (this.responseText.includes("generic"))) {
-console.log(">> inside load: ", this.url);
+            if (this.url.includes("SearchConsoleAggReportUi/data/batchexecute")) {
 console.log(">> inside load: this: ", this);
                 var dataDOMElement = document.createElement('div');
                 dataDOMElement.id = '__interceptedData';

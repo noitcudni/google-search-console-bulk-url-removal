@@ -19,9 +19,6 @@
             [domina.events :refer [dispatch!]]
             ))
 
-(def xhr-input-chan (async/chan))
-(def xhr-pub (async/pub xhr-input-chan :xhr-status))
-
 (defn sync-node-helper
   "This is unfortunate. alts! doens't close other channels"
   [dom-fn & xpath-strs]
@@ -41,32 +38,12 @@
 (def sync-single-node (partial sync-node-helper single-node))
 (def sync-nodes (partial sync-node-helper nodes))
 
-(defn get-most-recent-removal []
-  ;; $x("(//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr")
-  ;; $x("((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]") <--- get to the first entry
-  (when-let [n (-> "((//table//*[contains(text(), 'Requested')])[1]/../../../../tbody/tr/td)[1]" xpath single-node)]
-    (dommy/text n)))
-
-(defn sync-success? [most-recent-removal-entry]
-  ;; try maximum of 4 loops
-  (go-loop [cnt 0]
-    (let [current-removal-entry (get-most-recent-removal)]
-      (if (or (not= most-recent-removal-entry current-removal-entry) (>= cnt 20))
-        :successful-removal
-        (do (<! (async/timeout 500))
-            (recur (inc cnt))))
-      )))
-
-
 (defn scrape-xhr-data! []
   "grab the xhr injected data and clean up the extra dom"
   []
   (go
-    (let [injected-dom (<! (sync-single-node "//div[@id='__interceptedData']"))
-          r (dommy/text injected-dom)]
-      (.remove injected-dom)
-      r
-      )))
+    (let [injected-dom (<! (sync-single-node "//div[@id='__interceptedData']"))]
+      (dommy/text injected-dom))))
 
 (defn cleanup-xhr-data! []
   (go
@@ -86,11 +63,7 @@
   [url url-method url-type]
   (let [ch (chan)
         url-type-str (cond (= url-type "prefix") "Remove all URLs with this prefix"
-                           (= url-type "url-only") "Remove this URL only")
-        most-recent-removal (get-most-recent-removal)
-        _ (prn "most-recent-removal: " most-recent-removal)
-        xhr-output-chan (chan)
-        _ (async/sub xhr-pub :successful-removal xhr-output-chan)]
+                           (= url-type "url-only") "Remove this URL only")]
     (go
       (cond (and (not= url-method "remove-url") (not= url-method "clear-cached"))
             (>! ch :erroneous-url-method)
@@ -133,7 +106,7 @@
                               (recur (single-node (xpath "//span[contains(text(), 'Next')]/../..")) (inc iter-cnt)))
                           :else
                           ;; trigger skip-error
-                          (prn "Need to skip-error dude to url-method : " url-method) ;;xxx
+                          (prn "Need to skip-error due to url-method : " url-method) ;;xxx
                           )
                     ))
 
@@ -146,7 +119,7 @@
                                       "//div[contains(text(), 'Remove all URLs with this prefix?')]"
                                       "//div[contains(text(), 'Remove entire site?')]"))
 
-                (prn "Yay, the next dialog is here !!!") ;;xxx
+                (prn "Yay, the next dialog is here !!! --> " url) ;;xxx
                 ;; Check for "URL not in property"
                 (if-let [not-in-properity-node (single-node (xpath "//div[contains(text(), 'URL not in property')]"))]
                   ;; Oops, not in the right domain
@@ -161,11 +134,12 @@
                   ;; These show up as a modal dialog. Need to check for them
                   ;; Check for post submit modal dialog
                   (do
+                    (<! (cleanup-xhr-data!))
                     (prn "about to click on submit request")
                     (.click (<! (sync-single-node "//span[contains(text(), 'Submit request')]")))
                     (let [xhr-data (<! (scrape-xhr-data!))
-                          _ (prn "xhr-data: " xhr-data)]
-                      (if (clojure.string/includes? xhr-data "SubmitRemovalError")
+                          _ (prn "xhr-data: " (subs xhr-data 0 (min 1024 (count xhr-data))))]
+                      (if (clojure.string/includes? (subs xhr-data 0 (min 1024 (count xhr-data))) "SubmitRemovalError")
                         (let [err-ch (sync-single-node  "//div[contains(text(), 'Duplicate request')]"
                                                         "//div[contains(text(), 'Malformed URL')]")
                               _ (<! err-ch)
@@ -199,7 +173,7 @@
                                      (let [{:keys [victim removal-method url-type]} whole-msg
                                            request-status (<! (exec-new-removal-request victim
                                                                                         removal-method url-type))
-                                           _ (<! (async/timeout 1200))]
+                                           _ (<! (async/timeout 1500))]
                                        (prn "request-status: " request-status)
                                        (if (or (= :success request-status) (= :duplicate-request request-status))
                                          (post-message! chan (common/marshall {:type :success
@@ -209,8 +183,8 @@
                                                                                :url victim
                                                                                })))
                                         )))
-          (= type :xhr-completed) (do (prn "received xhr-completed")
-                                      (go (>! xhr-input-chan {:xhr-status :successful-removal})))
+          ;; (= type :xhr-completed) (do (prn "received xhr-completed")
+          ;;                             (go (>! xhr-input-chan {:xhr-status :successful-removal})))
           (= type :done) (js/alert "DONE with bulk url removals!")
           )
     ))
