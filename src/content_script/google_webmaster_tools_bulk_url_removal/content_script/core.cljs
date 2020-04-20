@@ -173,6 +173,19 @@
                                      (let [{:keys [victim removal-method url-type]} whole-msg
                                            request-status (<! (exec-new-removal-request victim
                                                                                         removal-method url-type))
+                                           ;; NOTE: This timeout is here to prevent a race condition.
+                                           ;; For reasons unbeknownst to me, a successful submission can
+                                           ;; results in 2 responses. We don't care which one comes back first
+                                           ;; so long as one of them does.
+                                           ;;
+                                           ;; However, the second ajax call may come back later than expected.
+                                           ;; Even though we clean up the ejected dom right before clicking on
+                                           ;; the submit button. It's entirely possible that the previously successful
+                                           ;; submission comes back right after the clean up, resulting in
+                                           ;; the extension getting stuck.
+                                           ;;
+                                           ;; The timeout is here to allow for plenty of time for the second ajax call
+                                           ;; to come back.
                                            _ (<! (async/timeout 1500))]
                                        (prn "request-status: " request-status)
                                        (if (or (= :success request-status) (= :duplicate-request request-status))
@@ -183,8 +196,6 @@
                                                                                :url victim
                                                                                })))
                                         )))
-          ;; (= type :xhr-completed) (do (prn "received xhr-completed")
-          ;;                             (go (>! xhr-input-chan {:xhr-status :successful-removal})))
           (= type :done) (js/alert "DONE with bulk url removals!")
           )
     ))
