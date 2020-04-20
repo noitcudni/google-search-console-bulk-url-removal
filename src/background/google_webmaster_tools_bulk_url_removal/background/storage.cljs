@@ -1,6 +1,6 @@
 (ns google-webmaster-tools-bulk-url-removal.background.storage
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
-  (:require [cljs.core.async :refer [<! >! chan take!]]
+  (:require [cljs.core.async :refer [<! >! chan take! close!]]
             [cljs-time.core :as t]
             [cljs-time.coerce :as tc]
             [cljs-time.format :as tf]
