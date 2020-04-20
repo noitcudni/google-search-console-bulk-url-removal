@@ -17,6 +17,7 @@
         "https://search.google.com/*search-console/removals*"
       ],
       "js": [
+        "inject.js",
         "compiled/content-script.js"
       ],
       "run_at": "document_end"
