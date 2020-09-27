@@ -170,6 +170,14 @@
     (go-loop []
       (let [file-content (<! read-chan)
             _ (prn "file-content: " (clojure.string/trim file-content))
+            file-content (->> (-> file-content
+                                  ;; split by ^M character
+                                  (clojure.string/split #"\r"))
+                              (map clojure.string/trim)
+                              (remove (fn [x]
+                                        (zero? (count x))))
+                              (clojure.string/join "\n"))
+            _ (prn "sanitized file-content: " (clojure.string/trim file-content))
             csv-data (->> (csv/read-csv (clojure.string/trim file-content))
                           ;; trim off random whitespaces
                           (map (fn [[url method url-type]]
