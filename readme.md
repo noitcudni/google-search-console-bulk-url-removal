@@ -43,4 +43,4 @@ By default `removal-method` is set to `removel-url`, and `url-type` is set to `u
 For removing outdated content in bulk, please visit [https://github.com/noitcudni/google-webmaster-tools-bulk-outdated-content-removal](https://github.com/noitcudni/google-webmaster-tools-bulk-outdated-content-removal)
 
 ## Bulk Google Translate
-If you looking to google translate a bunch of words/phrases to several languages and download the audio clips, check out [https://github.com/noitcudni/bulk-google-translate](https://github.com/noitcudni/bulk-google-translate)
+If you looking to google translate a bunch of words and/or phrases to several languages and download the audio clips, check out [https://github.com/noitcudni/bulk-google-translate](https://github.com/noitcudni/bulk-google-translate)
