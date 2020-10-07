@@ -63,7 +63,8 @@
   [url url-method url-type]
   (let [ch (chan)
         url-type-str (cond (= url-type "prefix") "Remove all URLs with this prefix"
-                           (= url-type "url-only") "Remove this URL only")]
+                           (= url-type "url-only") "Remove this URL only")
+        next-button-xpath "//span[contains(text(), 'Temporarily remove URL')]/../../../../../../descendant::span[contains(text(), 'Next')]/../.."]
     (go
       (cond (and (not= url-method "remove-url") (not= url-method "clear-cached"))
             (>! ch :erroneous-url-method)
@@ -88,29 +89,34 @@
                 ;; NOTE: Need to click one of the tabs to get next to show
                 ;; Increment the wait time in between clicking on the `Clear cached URL` and the `Temporarily remove URL` tabs.
                 ;; Don't stop until the next button is clickable
-                (loop [next-node (single-node (xpath "//span[contains(text(), 'Next')]/../.."))
+                (loop [next-nodes (nodes (xpath next-button-xpath))
                        iter-cnt 1]
-                  (when (= (-> next-node
-                               js/window.getComputedStyle
-                               (aget "backgroundColor")) "rgba(0, 0, 0, 0.12)")
+                  (when (->> next-nodes
+                             (every? (fn [n]
+                                       (= (-> n
+                                              js/window.getComputedStyle
+                                              (aget "backgroundColor")) "rgba(0, 0, 0, 0.12)"))))
                     (cond (= url-method "remove-url")
                           (do
                             (.click (<! (sync-single-node "//span[contains(text(), 'Clear cached URL')]")))
                             (<! (async/timeout (* iter-cnt 300)))
                             (.click (<! (sync-single-node "//span[contains(text(), 'Temporarily remove URL')]")))
-                            (recur (single-node (xpath "//span[contains(text(), 'Next')]/../..")) (inc iter-cnt))
+                            (recur (nodes (xpath next-button-xpath)) (inc iter-cnt))
                             )
                           (= url-method "clear-cached")
                           (do (.click (<! (sync-single-node "//span[contains(text(), 'Clear cached URL')]")))
                               (<! (async/timeout (* iter-cnt 300)))
-                              (recur (single-node (xpath "//span[contains(text(), 'Next')]/../..")) (inc iter-cnt)))
+                              (recur (nodes (xpath next-button-xpath)) (inc iter-cnt)))
                           :else
                           ;; trigger skip-error
                           (prn "Need to skip-error due to url-method : " url-method) ;;xxx
                           )
                     ))
 
-                (.click (<! (sync-single-node "//span[contains(text(), 'Next')]")))
+                ;; NOTE: there are two next buttons. One on each tab. Ideally, I'll use xpath to distill down to the ONE.
+                ;; I can only narrow it down for now. So, just loop through and click on all of them.
+                (doseq [n (<! (sync-nodes next-button-xpath))]
+                  (.click n))
 
                 ;; Wait for the next dialog
                 (<! (sync-single-node "//div[contains(text(), 'URL not in property')]"
