@@ -1,0 +1,9 @@
+https://your-domain-here.io/foo,
+https://your-domain-here.io/bar,removal-url
+https://your-domain-here.io/baz,removal-url,url-only
+https://your-domain-here.io/qux,removal-url,prefix
+https://your-domain-here.io/quux,clear-cached
+https://your-domain-here.io/quuz,clear-cached,url-only
+https://your-domain-here.io/corge,clear-cached,prefix
+https://your-domain-here.io/grault,,url-only
+https://your-domain-here.io/garply,,prefix

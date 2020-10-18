@@ -174,9 +174,7 @@
     (case event-id
       ::runtime/on-connect (apply handle-client-connection! event-args)
       ;; ::tabs/on-created (tell-clients-about-new-tab!)
-      (do
-        (prn "default: " event-id)
-        nil))))
+      )))
 
 (defn run-chrome-event-loop! [chrome-event-channel]
   (log "BACKGROUND: starting main event loop...")

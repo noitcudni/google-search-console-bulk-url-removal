@@ -99,7 +99,18 @@
                                 [recom/label :label "- Go to Google Search Console."]
                                 [recom/label :label "- Select the proper domain from the dropdown on the left."]
                                 [recom/label :label "- Select Removals on the left."]
-                                [recom/label :label "- Upload your csv file by clicking on the 'Submit CSV File' button."]]]
+                                [recom/label :label "- Upload your csv file by clicking on the 'Submit CSV File' button. Check out the example csv below."]
+                                [recom/hyperlink-href
+                                 :label "CSV Format Documentation"
+                                 :href "https://github.com/noitcudni/google-search-console-bulk-url-removal/#csv-format"
+                                 :target "_blank"]
+                                [recom/hyperlink-href
+                                 :label "example 1"
+                                 :href "examples/most-common.csv"]
+                                [recom/hyperlink-href
+                                 :label "example 2"
+                                 :href "examples/optional-columns.csv"]]
+                     ]
                     [recom/v-box
                      :gap "10px"
                      :children [[recom/button
