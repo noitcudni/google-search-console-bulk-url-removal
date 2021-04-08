@@ -1,10 +1,9 @@
 # Google Search Console Bulk Url Removal Chrome Extension
 ```diff
 - Attention: this extension has been updated to work with the new Google Search Console.
-- BUG: Upon visiting the Search Console's remove tab and submitting the csv file via
--      the green trash can, it's possible that nothing happens. If that's the case for you,
--      please refresh the page and resubmit your csv file.
 ```
+Just released a version for Bing [https://github.com/noitcudni/bing-webmaster-tools-bulk-url-removal](https://github.com/noitcudni/bing-webmaster-tools-bulk-url-removal)
+
 ## Install from Google Webstore
 https://chrome.google.com/webstore/detail/webmaster-tools-bulk-url/pmnpibilljafelnghknefahibdnfeece
 
@@ -41,6 +40,3 @@ By default `removal-method` is set to `removel-url`, and `url-type` is set to `u
 
 ## Bulk Outdated Content Removal
 For removing outdated content in bulk, please visit [https://github.com/noitcudni/google-webmaster-tools-bulk-outdated-content-removal](https://github.com/noitcudni/google-webmaster-tools-bulk-outdated-content-removal)
-
-## Bulk Google Translate
-If you looking to google translate a bunch of words/phrases to several languages and download the audio clips, check out [https://github.com/noitcudni/bulk-google-translate](https://github.com/noitcudni/bulk-google-translate)
