@@ -38,5 +38,8 @@ The extension uses chrome's local storage to keep track of state for each URL. Y
 url (required), removal-method (optional: `remove-url`, `clear-cached`), url-type (optional: `url-only`, `prefix`) <br />
 By default `removal-method` is set to `removel-url`, and `url-type` is set to `url-only`
 
+## End-user license agreement (EULA)
+By using Google Search Console Bulk URL Removal, you are agreeing to [Google Search Console Bulk Url Removal's EULA](https://github.com/noitcudni/google-search-console-bulk-url-removal/blob/master/EULA.md).
+
 ## Bulk Outdated Content Removal
 For removing outdated content in bulk, please visit [https://github.com/noitcudni/google-webmaster-tools-bulk-outdated-content-removal](https://github.com/noitcudni/google-webmaster-tools-bulk-outdated-content-removal)
