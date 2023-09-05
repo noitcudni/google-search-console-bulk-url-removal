@@ -1,8 +1,7 @@
 # Google Search Console Bulk Url Removal Chrome Extension
-```diff
-- Attention: this extension has been updated to work with the new Google Search Console.
-```
-Just released a version for Bing [https://github.com/noitcudni/bing-webmaster-tools-bulk-url-removal](https://github.com/noitcudni/bing-webmaster-tools-bulk-url-removal)
+- [Tutorial Video](https://www.youtube.com/watch?v=N7xD_RHjykw)
+- [Video on CSV Format](https://www.youtube.com/watch?v=F-21eHSxnb8&t=34s)
+- Just released a version for Bing [https://github.com/noitcudni/bing-webmaster-tools-bulk-url-removal](https://github.com/noitcudni/bing-webmaster-tools-bulk-url-removal)
 
 ## Install from Google Webstore
 https://chrome.google.com/webstore/detail/webmaster-tools-bulk-url/pmnpibilljafelnghknefahibdnfeece
